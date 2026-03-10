@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Traffic Tycoon Prototype</title>
+    <style>
+        canvas { border: 2px solid #333; background: #55a846; } /* 背景は芝生の緑 */
+        body { display: flex; flex-direction: column; align-items: center; font-family: sans-serif; }
+    </style>
+</head>
+<body>
+    <h1>交通整理ゲーム（プロトタイプ）</h1>
+    <canvas id="gameCanvas" width="600" height="400"></canvas>
+    <p>車が右に向かって走り、端に行くと左から戻ってきます。</p>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 車のデータ（後で画像に差し替えます）
+        let cars = [
+            { x: 0, y: 185, speed: 2, color: 'red' },
+            { x: -150, y: 185, speed: 1.5, color: 'blue' },
+            { x: -300, y: 185, speed: 2.5, color: 'yellow' }
+        ];
+
+        function draw() {
+            // 1. 画面をクリア
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 2. 道路を描画
+            ctx.fillStyle = '#444'; // アスファルトの色
+            ctx.fillRect(0, 150, canvas.width, 100); 
+            ctx.strokeStyle = 'white';
+            ctx.setLineDash([20, 20]); // 白線（点線）
+            ctx.beginPath();
+            ctx.moveTo(0, 200);
+            ctx.lineTo(canvas.width, 200);
+            ctx.stroke();
+
+            // 3. 車を移動して描画
+            cars.forEach(car => {
+                car.x += car.speed;
+
+                // 画面外に出たら左に戻す
+                if (car.x > canvas.width) {
+                    car.x = -50;
+                }
+
+                // ここを将来的に ctx.drawImage(img, car.x, car.y) に変えればドット絵になります
+                ctx.fillStyle = car.color;
+                ctx.setLineDash([]); // 点線を解除
+                ctx.fillRect(car.x, car.y, 40, 25); // 車の本体
+            });
+
+            requestAnimationFrame(draw); // ループ処理
+        }
+
+        draw();
+    </script>
+</body>
+</html>
