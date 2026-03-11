@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Road Master - Economy</title>
+    <title>Road Master - Complete</title>
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; background: #eee; font-family: 'Courier New', sans-serif; display: flex; flex-direction: column; height: 100vh; }
+        body { margin: 0; padding: 0; overflow: hidden; background: #eee; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
         #adSpace { height: 50px; background: #ddd; text-align: center; line-height: 50px; color: #777; font-size: 14px; border-bottom: 2px solid #ccc; }
         #gameContainer { position: relative; flex-grow: 1; }
         canvas { display: block; background: #55a846; width: 100%; height: 100%; }
-        .ui-panel { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: #fff; padding: 10px; border-radius: 8px; pointer-events: none; }
+        .ui-panel { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #fff; padding: 10px; border-radius: 8px; pointer-events: none; font-size: 14px; line-height: 1.5; }
         #upgradeBtn { position: absolute; bottom: 20px; right: 20px; padding: 15px 25px; font-size: 18px; font-weight: bold; cursor: pointer; background: #ffcc00; border: none; border-radius: 50px; box-shadow: 0 4px #997a00; }
         #upgradeBtn:active { box-shadow: 0 2px #997a00; transform: translateY(2px); }
-        #upgradeBtn:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; }
+        #upgradeBtn:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; opacity: 0.6; }
     </style>
 </head>
 <body>
@@ -20,8 +20,8 @@
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
         <div class="ui-panel">
-            <div>所持金: <span id="goldDisplay">0</span> G</div>
-            <div>信号Lv: <span id="levelDisplay">1</span></div>
+            所持金: <span id="goldDisplay">0</span> G<br>
+            信号Lv: <span id="levelDisplay">1</span>
         </div>
         <button id="upgradeBtn" onclick="upgradeSignal()">信号強化 (5G)</button>
     </div>
@@ -40,8 +40,10 @@
         // --- 画像設定 ---
         const images = {};
         const assets = {
-            car_up: 'images/car.up.red.PNG', car_down: 'images/car.down.red.PNG',
-            car_left: 'images/car.left.red.PNG', car_right: 'images/car.right.red.PNG',
+            car_up: 'images/car.up.red.PNG', 
+            car_down: 'images/car.down.red.PNG',
+            car_left: 'images/car.left.red.PNG', 
+            car_right: 'images/car.right.red.PNG',
             signal_sheet: 'images/singo.png'
         };
         for (let key in assets) { images[key] = new Image(); images[key].src = assets[key]; }
@@ -53,9 +55,9 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        // 信号スプライトの住所 (右端の列を使用: x=192、各コマ高さ192と想定)
-        const signalMap = { 'green': 0, 'yellow': 192, 'red': 384 };
+        // スプライトシートの切り出し位置（1マス＝64px計算）
         const levelOffsetX = { 1: 0, 2: 192, 3: 384 };
+        const stateOffsetY = { 'green': 0, 'yellow': 192, 'red': 384 };
 
         function upgradeSignal() {
             if (signalLevel === 1 && gold >= 5) {
@@ -75,7 +77,7 @@
             else if (signalLevel === 2) upgradeBtn.disabled = gold < 7;
         }
 
-        // 車の生成
+        // 車のデータ
         let cars = [
             { x: -50, y: 0, speed: 2, dir: 'right', img: 'car_right', passed: false },
             { x: 0, y: -50, speed: 2, dir: 'down', img: 'car_down', passed: false }
@@ -90,44 +92,48 @@
             const midX = canvas.width / 2;
             const midY = canvas.height / 2;
 
-            // 道路描画
+            // 道路
             ctx.fillStyle = '#444';
             ctx.fillRect(0, midY - 40, canvas.width, 80);
             ctx.fillRect(midX - 40, 0, 80, canvas.height);
 
-            // 信号判定ロジック
+            // 信号の状態
             let hCol = 'red', vCol = 'red';
             if (signalState === 0) { hCol = 'green'; vCol = 'red'; }
             else if (signalState === 1) { hCol = 'yellow'; vCol = 'red'; }
             else if (signalState === 2) { hCol = 'red'; vCol = 'green'; }
             else if (signalState === 3) { hCol = 'red'; vCol = 'yellow'; }
 
-            // 信号描画 (singo.pngから切り出し)
+            // 信号描画関数
             function drawS(x, y, state) {
                 if (images.signal_sheet.complete) {
-                    // levelOffsetX[signalLevel] で列を、signalMap[state] で行を切り替え
-                    ctx.drawImage(images.signal_sheet, levelOffsetX[signalLevel], signalMap[state], 192, 192, x, y, 50, 50);
+                    // 背景透過の代わりになじませる（道路と同じ色を下に塗る）
+                    ctx.fillStyle = '#444';
+                    ctx.fillRect(x, y, 32, 32);
+
+                    // 1コマ（3x3グリッドの真ん中）を切り抜く計算
+                    const sx = levelOffsetX[signalLevel] + 64; 
+                    const sy = stateOffsetY[state] + 64; 
+                    ctx.drawImage(images.signal_sheet, sx, sy, 64, 64, x, y, 32, 32);
                 }
             }
-            drawS(midX - 70, midY + 45, hCol);
-            drawS(midX + 45, midY - 80, vCol);
+            // 信号の配置
+            drawS(midX - 75, midY + 42, hCol);
+            drawS(midX + 42, midY - 75, vCol);
 
-            cars.forEach((car, index) => {
-                // 初期位置調整
-                if (car.y === 0 && car.dir === 'right') car.y = midY + 5;
+            cars.forEach(car => {
+                if (car.y === 0 && car.dir === 'right') car.y = midY + 10;
                 if (car.x === 0 && car.dir === 'down') car.x = midX + 15;
 
                 let canMove = true;
-                const stopLine = 70;
-                
-                // 信号停止判定
+                const stopLine = 75;
                 if (car.dir === 'right' && hCol === 'red' && car.x > midX - stopLine && car.x < midX - stopLine + 10) canMove = false;
                 if (car.dir === 'down' && vCol === 'red' && car.y > midY - stopLine && car.y < midY - stopLine + 10) canMove = false;
 
-                // 収益発生判定 (中心を通ったら)
+                // 収益判定
                 if (!car.passed) {
                     if ((car.dir === 'right' && car.x > midX) || (car.dir === 'down' && car.y > midY)) {
-                        gold += signalLevel; // Lv1=1G, Lv2=2G, Lv3=3G
+                        gold += signalLevel; 
                         car.passed = true;
                         updateUI();
                     }
@@ -138,10 +144,9 @@
                     if (car.dir === 'down') car.y += car.speed;
                 }
 
-                // 画面外でリセット
                 if (car.x > canvas.width + 50 || car.y > canvas.height + 50) {
                     car.x = car.dir === 'right' ? -50 : midX + 15;
-                    car.y = car.dir === 'down' ? -50 : midY + 5;
+                    car.y = car.dir === 'down' ? -50 : midY + 10;
                     car.passed = false;
                 }
 
