@@ -3,162 +3,121 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Road Master - Complete</title>
+    <title>Road Master - Precision</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background: #eee; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
         #adSpace { height: 50px; background: #ddd; text-align: center; line-height: 50px; color: #777; font-size: 14px; border-bottom: 2px solid #ccc; }
         #gameContainer { position: relative; flex-grow: 1; }
         canvas { display: block; background: #55a846; width: 100%; height: 100%; }
-        .ui-panel { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #fff; padding: 10px; border-radius: 8px; pointer-events: none; font-size: 14px; line-height: 1.5; }
-        #upgradeBtn { position: absolute; bottom: 20px; right: 20px; padding: 15px 25px; font-size: 18px; font-weight: bold; cursor: pointer; background: #ffcc00; border: none; border-radius: 50px; box-shadow: 0 4px #997a00; }
-        #upgradeBtn:active { box-shadow: 0 2px #997a00; transform: translateY(2px); }
-        #upgradeBtn:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; opacity: 0.6; }
+        .ui-panel { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #fff; padding: 10px; border-radius: 8px; font-size: 14px; }
+        #upgradeBtn { position: absolute; bottom: 20px; right: 20px; padding: 15px 25px; font-size: 18px; font-weight: bold; background: #ffcc00; border: none; border-radius: 50px; box-shadow: 0 4px #997a00; }
+        #upgradeBtn:disabled { background: #ccc; box-shadow: none; opacity: 0.6; }
     </style>
 </head>
 <body>
-    <div id="adSpace">AD SPACE (320x50)</div>
+    <div id="adSpace">AD SPACE</div>
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
-        <div class="ui-panel">
-            所持金: <span id="goldDisplay">0</span> G<br>
-            信号Lv: <span id="levelDisplay">1</span>
-        </div>
+        <div class="ui-panel">所持金: <span id="goldDisplay">0</span> G<br>信号Lv: <span id="levelDisplay">1</span></div>
         <button id="upgradeBtn" onclick="upgradeSignal()">信号強化 (5G)</button>
     </div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const goldDisplay = document.getElementById('goldDisplay');
-        const levelDisplay = document.getElementById('levelDisplay');
-        const upgradeBtn = document.getElementById('upgradeBtn');
+        let gold = 0, signalLevel = 1, signalState = 0;
 
-        let gold = 0;
-        let signalLevel = 1;
-        let signalState = 0; // 0:横青, 1:横黄, 2:縦青, 3:縦黄
-
-        // --- 画像設定 ---
         const images = {};
         const assets = {
-            car_up: 'images/car.up.red.PNG', 
-            car_down: 'images/car.down.red.PNG',
-            car_left: 'images/car.left.red.PNG', 
-            car_right: 'images/car.right.red.PNG',
-            signal_sheet: 'images/singo.png'
+            car_up: 'images/car.up.red.PNG', car_down: 'images/car.down.red.PNG',
+            car_left: 'images/car.left.red.PNG', car_right: 'images/car.right.red.PNG',
+            singo: 'images/singo.png'
         };
         for (let key in assets) { images[key] = new Image(); images[key].src = assets[key]; }
 
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight - 50;
-        }
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
+        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight - 50; }
+        window.addEventListener('resize', resizeCanvas); resizeCanvas();
 
-        // スプライトシートの切り出し位置（1マス＝64px計算）
-        const levelOffsetX = { 1: 0, 2: 192, 3: 384 };
-        const stateOffsetY = { 'green': 0, 'yellow': 192, 'red': 384 };
+        // 信号機の切り出し微調整（グリッド線を避けるために +5 などのオフセットを入れています）
+        function drawS(x, y, state) {
+            if (!images.singo.complete) return;
+            ctx.fillStyle = '#444'; ctx.fillRect(x, y, 32, 32); // 背景なじませ
+
+            // レベルに応じたX座標 (1番右の列を使う)
+            const sx = 192 * 3 + 20; // 4列目の中心付近
+            
+            // 状態に応じたY座標
+            let sy = 0;
+            if (state === 'yellow') sy = 192;
+            if (state === 'red') sy = 384;
+            sy += 20; // グリッドの線を避けるための余白
+
+            // 150x150で大きく切り取って、32x32にギュッと縮小して表示
+            ctx.drawImage(images.singo, sx, sy, 150, 150, x, y, 32, 32);
+        }
 
         function upgradeSignal() {
-            if (signalLevel === 1 && gold >= 5) {
-                gold -= 5; signalLevel = 2;
-                upgradeBtn.innerText = "信号強化 (7G)";
-            } else if (signalLevel === 2 && gold >= 7) {
-                gold -= 7; signalLevel = 3;
-                upgradeBtn.style.display = "none";
+            const costs = {1: 5, 2: 7};
+            if (gold >= costs[signalLevel]) {
+                gold -= costs[signalLevel]; signalLevel++;
+                if (signalLevel === 3) document.getElementById('upgradeBtn').style.display = "none";
+                updateUI();
             }
-            updateUI();
         }
 
         function updateUI() {
-            goldDisplay.innerText = gold;
-            levelDisplay.innerText = signalLevel;
-            if (signalLevel === 1) upgradeBtn.disabled = gold < 5;
-            else if (signalLevel === 2) upgradeBtn.disabled = gold < 7;
+            document.getElementById('goldDisplay').innerText = gold;
+            document.getElementById('levelDisplay').innerText = signalLevel;
+            const btn = document.getElementById('upgradeBtn');
+            if (signalLevel === 1) btn.disabled = gold < 5;
+            if (signalLevel === 2) btn.disabled = gold < 7;
+            btn.innerText = signalLevel === 1 ? "信号強化 (5G)" : "信号強化 (7G)";
         }
 
-        // 車のデータ
         let cars = [
             { x: -50, y: 0, speed: 2, dir: 'right', img: 'car_right', passed: false },
             { x: 0, y: -50, speed: 2, dir: 'down', img: 'car_down', passed: false }
         ];
 
-        canvas.addEventListener('mousedown', (e) => {
-            if (e.target.tagName !== 'BUTTON') signalState = (signalState + 1) % 4;
-        });
+        canvas.addEventListener('mousedown', (e) => { if (e.target.tagName !== 'BUTTON') signalState = (signalState + 1) % 4; });
 
         function update() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            const midX = canvas.width / 2;
-            const midY = canvas.height / 2;
+            const midX = canvas.width / 2, midY = canvas.height / 2;
 
-            // 道路
             ctx.fillStyle = '#444';
-            ctx.fillRect(0, midY - 40, canvas.width, 80);
-            ctx.fillRect(midX - 40, 0, 80, canvas.height);
+            ctx.fillRect(0, midY - 40, canvas.width, 80); ctx.fillRect(midX - 40, 0, 80, canvas.height);
 
-            // 信号の状態
-            let hCol = 'red', vCol = 'red';
-            if (signalState === 0) { hCol = 'green'; vCol = 'red'; }
-            else if (signalState === 1) { hCol = 'yellow'; vCol = 'red'; }
-            else if (signalState === 2) { hCol = 'red'; vCol = 'green'; }
-            else if (signalState === 3) { hCol = 'red'; vCol = 'yellow'; }
+            let hCol = (signalState === 0) ? 'green' : (signalState === 1 ? 'yellow' : 'red');
+            let vCol = (signalState === 2) ? 'green' : (signalState === 3 ? 'yellow' : 'red');
 
-            // 信号描画関数
-            function drawS(x, y, state) {
-                if (images.signal_sheet.complete) {
-                    // 背景透過の代わりになじませる（道路と同じ色を下に塗る）
-                    ctx.fillStyle = '#444';
-                    ctx.fillRect(x, y, 32, 32);
-
-                    // 1コマ（3x3グリッドの真ん中）を切り抜く計算
-                    const sx = levelOffsetX[signalLevel] + 64; 
-                    const sy = stateOffsetY[state] + 64; 
-                    ctx.drawImage(images.signal_sheet, sx, sy, 64, 64, x, y, 32, 32);
-                }
-            }
-            // 信号の配置
             drawS(midX - 75, midY + 42, hCol);
             drawS(midX + 42, midY - 75, vCol);
 
             cars.forEach(car => {
                 if (car.y === 0 && car.dir === 'right') car.y = midY + 10;
-                if (car.x === 0 && car.dir === 'down') car.x = midX + 15;
+                if (car.x === 0 && car.dir === 'down') car.x = midX + 10;
 
                 let canMove = true;
-                const stopLine = 75;
-                if (car.dir === 'right' && hCol === 'red' && car.x > midX - stopLine && car.x < midX - stopLine + 10) canMove = false;
-                if (car.dir === 'down' && vCol === 'red' && car.y > midY - stopLine && car.y < midY - stopLine + 10) canMove = false;
+                if (car.dir === 'right' && hCol === 'red' && car.x > midX - 80 && car.x < midX - 70) canMove = false;
+                if (car.dir === 'down' && vCol === 'red' && car.y > midY - 80 && car.y < midY - 70) canMove = false;
 
-                // 収益判定
-                if (!car.passed) {
-                    if ((car.dir === 'right' && car.x > midX) || (car.dir === 'down' && car.y > midY)) {
-                        gold += signalLevel; 
-                        car.passed = true;
-                        updateUI();
-                    }
+                if (!car.passed && ((car.dir === 'right' && car.x > midX) || (car.dir === 'down' && car.y > midY))) {
+                    gold += signalLevel; car.passed = true; updateUI();
                 }
 
-                if (canMove) {
-                    if (car.dir === 'right') car.x += car.speed;
-                    if (car.dir === 'down') car.y += car.speed;
-                }
+                if (canMove) { car.x += (car.dir === 'right' ? car.speed : 0); car.y += (car.dir === 'down' ? car.speed : 0); }
 
                 if (car.x > canvas.width + 50 || car.y > canvas.height + 50) {
-                    car.x = car.dir === 'right' ? -50 : midX + 15;
+                    car.x = car.dir === 'right' ? -50 : midX + 10;
                     car.y = car.dir === 'down' ? -50 : midY + 10;
                     car.passed = false;
                 }
-
-                if (images[car.img].complete) {
-                    ctx.drawImage(images[car.img], car.x, car.y, 32, 20);
-                }
+                if (images[car.img].complete) ctx.drawImage(images[car.img], car.x, car.y, 32, 20);
             });
-
             requestAnimationFrame(update);
         }
-        update();
-        updateUI();
+        update(); updateUI();
     </script>
 </body>
 </html>
