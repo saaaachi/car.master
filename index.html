@@ -3,21 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Road Master - Emergency Update</title>
+    <title>Road Master - Complete Fix</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background: #eee; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
-        #adSpace { height: 50px; background: #ddd; text-align: center; line-height: 50px; color: #777; font-size: 14px; border-bottom: 2px solid #ccc; }
+        #adSpace { height: 50px; background: #ddd; overflow: hidden; border-bottom: 2px solid #ccc; }
         #gameContainer { position: relative; flex-grow: 1; }
         canvas { display: block; background: #55a846; width: 100%; height: 100%; }
-        .ui-panel { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #fff; padding: 10px; border-radius: 8px; font-size: 14px; pointer-events: none; }
-        /* 広告用iframeのスタイル */
-        #adFrame { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; background: rgba(255,255,255,0.9); z-index: 100; }
+        .ui-panel { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #fff; padding: 10px; border-radius: 8px; font-size: 14px; pointer-events: none; z-index: 10; }
+        #adFrame { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; background: rgba(255,255,255,0.95); z-index: 100; }
     </style>
 </head>
 <body>
-    <div id="adSpace" style="height: 50px; background: #ddd; overflow: hidden;">
-    <iframe src="up.ad.html" style="width: 100%; height: 50px; border: none; scrolling: no;"></iframe>
-</div>
+    <div id="adSpace">
+        <iframe src="up.ad.html" style="width: 100%; height: 50px; border: none;" scrolling="no"></iframe>
+    </div>
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
         <iframe id="adFrame" src="ad.html"></iframe>
@@ -27,8 +26,7 @@
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        let gold = 0, signalLevel = 1, signalState = 0, isPaused = false;
-        let sirenFrame = 0; // サイレン点滅用
+        let gold = 0, signalLevel = 1, signalState = 0, isPaused = false, sirenFrame = 0;
 
         const images = {};
         const assets = { singo: 'images/singo.png', cars: 'images/car.png', kinkyu: 'images/kinkyu.png' };
@@ -37,102 +35,105 @@
         function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight - 50; }
         window.addEventListener('resize', resizeCanvas); resizeCanvas();
 
+        const carTypes = [
+            { name: 'red', sx: 50 }, { name: 'blue', sx: 250 }, { name: 'black', sx: 450 }, { name: 'yellow', sx: 650 }
+        ];
+
         let cars = [];
-        // 普通の車
         function spawnCar() {
             if (isPaused) return;
             const isVertical = Math.random() > 0.5;
-            cars.push({
-                x: isVertical ? canvas.width/2 + 10 : -60,
-                y: isVertical ? -60 : canvas.height/2 + 10,
+            const type = carTypes[Math.floor(Math.random() * carTypes.length)];
+            const car = {
+                x: isVertical ? canvas.width/2 + 5 : -60,
+                y: isVertical ? -60 : canvas.height/2 + 5,
                 speed: 2, dir: isVertical ? 'down' : 'right',
-                type: 'normal', passed: false
-            });
+                type: 'normal', carInfo: type, passed: false, width: 30, height: 45
+            };
+            if (!cars.some(o => Math.abs(o.x - car.x) < 60 && Math.abs(o.y - car.y) < 60)) cars.push(car);
         }
         setInterval(spawnCar, 2500);
 
-        // ★緊急車両の生成 (10秒に1回 = 10000ミリ秒)
         function spawnEmergency() {
             if (isPaused) return;
             cars.push({
-                x: -60, y: canvas.height/2 + 10,
-                speed: 4, dir: 'right', // 爆走する
-                type: 'emergency', eType: Math.floor(Math.random() * 3), // 0:パトカー, 1:救急車, 2:消防車
-                passed: false
+                x: -60, y: canvas.height/2 + 5,
+                speed: 1.5, // ★タップしやすいように遅くしました
+                dir: 'right', type: 'emergency', eType: Math.floor(Math.random() * 3),
+                passed: false, width: 45, height: 45
             });
         }
-        setInterval(spawnEmergency, 10000); // ← ここで秒数を変えられます
+        setInterval(spawnEmergency, 10000); // ★10秒に1回
 
-        // 広告終了後の処理
         window.addEventListener('message', (e) => {
             if (e.data === 'adFinished') {
-                gold += 10;
-                document.getElementById('goldDisplay').innerText = gold;
-                document.getElementById('adFrame').style.display = 'none';
-                isPaused = false;
+                gold += 10; document.getElementById('goldDisplay').innerText = gold;
+                document.getElementById('adFrame').style.display = 'none'; isPaused = false;
             }
         });
 
         canvas.addEventListener('mousedown', (e) => {
             if (isPaused) return;
-            // 緊急車両のタップ判定
             const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-
+            const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+            let tapped = false;
             cars.forEach(car => {
-                if (car.type === 'emergency' && mouseX > car.x && mouseX < car.x + 50 && mouseY > car.y && mouseY < car.y + 50) {
-                    isPaused = true;
-                    document.getElementById('adFrame').style.display = 'block';
+                if (car.type === 'emergency' && mx > car.x && mx < car.x + 50 && my > car.y && my < car.y + 50) {
+                    isPaused = true; document.getElementById('adFrame').style.display = 'block';
+                    tapped = true;
                 }
             });
-            if (!isPaused) signalState = (signalState + 1) % 4;
+            if (!tapped) signalState = (signalState + 1) % 4;
         });
+
+        function drawSignal(x, y, state) {
+            if (!images.singo.complete) return;
+            const lx = { 1: 30, 2: 222, 3: 414 }, ly = { 'green': 30, 'yellow': 222, 'red': 414 };
+            ctx.drawImage(images.singo, lx[signalLevel], ly[state], 130, 130, x, y, 35, 35);
+        }
 
         function update() {
             if (!isPaused) {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 sirenFrame++;
-                const midX = canvas.width / 2, midY = canvas.height / 2;
+                const mx = canvas.width / 2, my = canvas.height / 2;
 
-                ctx.fillStyle = '#444';
-                ctx.fillRect(0, midY - 40, canvas.width, 80); ctx.fillRect(midX - 40, 0, 80, canvas.height);
-
+                ctx.fillStyle = '#444'; ctx.fillRect(0, my - 40, canvas.width, 80); ctx.fillRect(mx - 40, 0, 80, canvas.height);
                 let hCol = (signalState <= 1) ? (signalState === 0 ? 'green' : 'yellow') : 'red';
                 let vCol = (signalState >= 2) ? (signalState === 2 ? 'green' : 'yellow') : 'red';
+                drawSignal(mx - 80, my + 45, hCol); drawSignal(mx + 45, my - 80, vCol);
 
                 cars.forEach((car, i) => {
                     let canMove = true;
                     if (car.type === 'normal') {
-                        // 信号・車間判定
-                        if (car.dir === 'right' && hCol === 'red' && car.x > midX - 85 && car.x < midX - 75) canMove = false;
-                        if (car.dir === 'down' && vCol === 'red' && car.y > midY - 85 && car.y < midY - 75) canMove = false;
-                        cars.forEach((other, j) => {
-                            if (i !== j && car.dir === other.dir && (car.dir === 'right' ? (other.x > car.x && other.x < car.x + 50) : (other.y > car.y && other.y < car.y + 50))) canMove = false;
+                        if (car.dir === 'right' && hCol === 'red' && car.x > mx - 85 && car.x < mx - 75) canMove = false;
+                        if (car.dir === 'down' && vCol === 'red' && car.y > my - 85 && car.y < my - 75) canMove = false;
+                        cars.forEach((o, j) => {
+                            if (i !== j && car.dir === o.dir && (car.dir === 'right' ? (o.x > car.x && o.x < car.x + 60) : (o.y > car.y && o.y < car.y + 60))) canMove = false;
                         });
                     }
+                    if (canMove) { car.x += (car.dir === 'right' ? car.speed : 0); car.y += (car.dir === 'down' ? car.speed : 0); }
 
-                    if (canMove) {
-                        if (car.dir === 'right') car.x += car.speed;
-                        if (car.dir === 'down') car.y += car.speed;
-                    }
-
-                    // 描画
+                    ctx.save();
+                    ctx.translate(car.x + car.width/2, car.y + car.height/2);
+                    if (car.dir === 'right') ctx.rotate(Math.PI / 2);
+                    
                     if (car.type === 'emergency' && images.kinkyu.complete) {
-                        const isLit = (Math.floor(sirenFrame / 10) % 2 === 0);
-                        const sy = isLit ? 256 : 0; // 2段目をLitとする(大体の位置)
-                        const sx = car.eType * (images.kinkyu.width / 3);
-                        ctx.drawImage(images.kinkyu, sx, sy, 200, 200, car.x, car.y, 45, 45);
+                        const isLit = (Math.floor(sirenFrame / 15) % 2 === 0);
+                        const sx = car.eType * (images.kinkyu.width / 3) + 20;
+                        const sy = isLit ? 240 : 20;
+                        ctx.drawImage(images.kinkyu, sx, sy, 180, 180, -car.width/2, -car.height/2, car.width, car.height);
                     } else if (images.cars.complete) {
-                        ctx.drawImage(images.cars, 50, 150, 100, 180, car.x, car.y, 30, 40);
+                        ctx.drawImage(images.cars, car.carInfo.sx, 160, 100, 180, -car.width/2, -car.height/2, car.width, car.height);
                     }
+                    ctx.restore();
 
-                    if (!car.passed && (car.x > midX || car.y > midY)) {
+                    if (!car.passed && (car.x > mx || car.y > my)) {
                         gold += (car.type === 'emergency' ? 0 : signalLevel); car.passed = true;
                         document.getElementById('goldDisplay').innerText = gold;
                     }
                 });
-                cars = cars.filter(car => car.x < canvas.width + 100 && car.y < canvas.height + 100);
+                cars = cars.filter(c => c.x < canvas.width + 100 && c.y < canvas.height + 100);
             }
             requestAnimationFrame(update);
         }
