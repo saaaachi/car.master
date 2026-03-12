@@ -3,15 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Road Master - Precision</title>
+    <title>Road Master - Intersection Turn</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background: #eee; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
         #adSpace { height: 50px; background: #ddd; text-align: center; line-height: 50px; color: #777; font-size: 14px; border-bottom: 2px solid #ccc; }
         #gameContainer { position: relative; flex-grow: 1; }
         canvas { display: block; background: #55a846; width: 100%; height: 100%; }
-        .ui-panel { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #fff; padding: 10px; border-radius: 8px; font-size: 14px; }
-        #upgradeBtn { position: absolute; bottom: 20px; right: 20px; padding: 15px 25px; font-size: 18px; font-weight: bold; background: #ffcc00; border: none; border-radius: 50px; box-shadow: 0 4px #997a00; }
-        #upgradeBtn:disabled { background: #ccc; box-shadow: none; opacity: 0.6; }
+        .ui-panel { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #fff; padding: 10px; border-radius: 8px; font-size: 14px; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -19,7 +17,6 @@
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
         <div class="ui-panel">所持金: <span id="goldDisplay">0</span> G<br>信号Lv: <span id="levelDisplay">1</span></div>
-        <button id="upgradeBtn" onclick="upgradeSignal()">信号強化 (5G)</button>
     </div>
 
     <script>
@@ -29,95 +26,107 @@
 
         const images = {};
         const assets = {
-            car_up: 'images/car.up.red.PNG', car_down: 'images/car.down.red.PNG',
-            car_left: 'images/car.left.red.PNG', car_right: 'images/car.right.red.PNG',
-            singo: 'images/singo.png'
+            singo: 'images/singo.png',
+            cars: 'images/car.png'
         };
         for (let key in assets) { images[key] = new Image(); images[key].src = assets[key]; }
 
         function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight - 50; }
         window.addEventListener('resize', resizeCanvas); resizeCanvas();
 
-        // 信号機の切り出し微調整（グリッド線を避けるために +5 などのオフセットを入れています）
-        function drawS(x, y, state) {
-            if (!images.singo.complete) return;
-            ctx.fillStyle = '#444'; ctx.fillRect(x, y, 32, 32); // 背景なじませ
-
-            // レベルに応じたX座標 (1番右の列を使う)
-            const sx = 192 * 3 + 20; // 4列目の中心付近
-            
-            // 状態に応じたY座標
-            let sy = 0;
-            if (state === 'yellow') sy = 192;
-            if (state === 'red') sy = 384;
-            sy += 20; // グリッドの線を避けるための余白
-
-            // 150x150で大きく切り取って、32x32にギュッと縮小して表示
-            ctx.drawImage(images.singo, sx, sy, 150, 150, x, y, 32, 32);
-        }
-
-        function upgradeSignal() {
-            const costs = {1: 5, 2: 7};
-            if (gold >= costs[signalLevel]) {
-                gold -= costs[signalLevel]; signalLevel++;
-                if (signalLevel === 3) document.getElementById('upgradeBtn').style.display = "none";
-                updateUI();
-            }
-        }
-
-        function updateUI() {
-            document.getElementById('goldDisplay').innerText = gold;
-            document.getElementById('levelDisplay').innerText = signalLevel;
-            const btn = document.getElementById('upgradeBtn');
-            if (signalLevel === 1) btn.disabled = gold < 5;
-            if (signalLevel === 2) btn.disabled = gold < 7;
-            btn.innerText = signalLevel === 1 ? "信号強化 (5G)" : "信号強化 (7G)";
-        }
-
-        let cars = [
-            { x: -50, y: 0, speed: 2, dir: 'right', img: 'car_right', passed: false },
-            { x: 0, y: -50, speed: 2, dir: 'down', img: 'car_down', passed: false }
+        // 車の種類ごとのX座標設定 (car.pngの列に対応)
+        // Red Sedan: 0, Blue SUV: 200, Black: 400, Yellow Bus: 600, Truck: 800 (目安)
+        const carTypes = [
+            { name: 'red', x: 0 },
+            { name: 'blue', x: 200 },
+            { name: 'yellow', x: 600 }
         ];
 
-        canvas.addEventListener('mousedown', (e) => { if (e.target.tagName !== 'BUTTON') signalState = (signalState + 1) % 4; });
+        let cars = [];
+        function spawnCar() {
+            const type = carTypes[Math.floor(Math.random() * carTypes.length)];
+            const isVertical = Math.random() > 0.5;
+            
+            let car = {
+                x: isVertical ? canvas.width/2 + 10 : -50,
+                y: isVertical ? -50 : canvas.height/2 + 10,
+                speed: 2,
+                dir: isVertical ? 'down' : 'right',
+                type: type,
+                isTurning: false,
+                willTurn: isVertical && Math.random() > 0.5, // 縦から来る車の一部が右折する
+                passed: false
+            };
+            cars.push(car);
+        }
+        setInterval(spawnCar, 2000); // 2秒ごとに車を生成
+
+        function drawSignal(x, y, state) {
+            if (!images.singo.complete) return;
+            const levelX = { 1: 0, 2: 192, 3: 384 };
+            const stateY = { 'green': 0, 'yellow': 192, 'red': 384 };
+            ctx.fillStyle = '#444'; ctx.fillRect(x, y, 32, 32);
+            ctx.drawImage(images.singo, levelX[signalLevel]+64, stateY[state]+64, 64, 64, x, y, 32, 32);
+        }
+
+        canvas.addEventListener('mousedown', () => { signalState = (signalState + 1) % 4; });
 
         function update() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             const midX = canvas.width / 2, midY = canvas.height / 2;
 
+            // 道路
             ctx.fillStyle = '#444';
-            ctx.fillRect(0, midY - 40, canvas.width, 80); ctx.fillRect(midX - 40, 0, 80, canvas.height);
+            ctx.fillRect(0, midY - 40, canvas.width, 80);
+            ctx.fillRect(midX - 40, 0, 80, canvas.height);
 
-            let hCol = (signalState === 0) ? 'green' : (signalState === 1 ? 'yellow' : 'red');
-            let vCol = (signalState === 2) ? 'green' : (signalState === 3 ? 'yellow' : 'red');
+            let hCol = (signalState <= 1) ? (signalState === 0 ? 'green' : 'yellow') : 'red';
+            let vCol = (signalState >= 2) ? (signalState === 2 ? 'green' : 'yellow') : 'red';
 
-            drawS(midX - 75, midY + 42, hCol);
-            drawS(midX + 42, midY - 75, vCol);
+            drawSignal(midX - 75, midY + 42, hCol);
+            drawSignal(midX + 42, midY - 75, vCol);
 
-            cars.forEach(car => {
-                if (car.y === 0 && car.dir === 'right') car.y = midY + 10;
-                if (car.x === 0 && car.dir === 'down') car.x = midX + 10;
-
+            cars.forEach((car, index) => {
                 let canMove = true;
-                if (car.dir === 'right' && hCol === 'red' && car.x > midX - 80 && car.x < midX - 70) canMove = false;
-                if (car.dir === 'down' && vCol === 'red' && car.y > midY - 80 && car.y < midY - 70) canMove = false;
+                const stopLine = 75;
 
-                if (!car.passed && ((car.dir === 'right' && car.x > midX) || (car.dir === 'down' && car.y > midY))) {
-                    gold += signalLevel; car.passed = true; updateUI();
+                // 停止判定
+                if (car.dir === 'right' && hCol === 'red' && car.x > midX - stopLine && car.x < midX - stopLine + 10) canMove = false;
+                if (car.dir === 'down' && vCol === 'red' && car.y > midY - stopLine && car.y < midY - stopLine + 10) canMove = false;
+
+                if (canMove) {
+                    // 右折ロジック
+                    if (car.willTurn && car.y > midY - 10 && car.dir === 'down') {
+                        car.isTurning = true;
+                        car.x += car.speed;
+                        car.y += car.speed * 0.5; // 斜めに進む
+                    } else {
+                        if (car.dir === 'right') car.x += car.speed;
+                        if (car.dir === 'down') car.y += car.speed;
+                    }
                 }
 
-                if (canMove) { car.x += (car.dir === 'right' ? car.speed : 0); car.y += (car.dir === 'down' ? car.speed : 0); }
-
-                if (car.x > canvas.width + 50 || car.y > canvas.height + 50) {
-                    car.x = car.dir === 'right' ? -50 : midX + 10;
-                    car.y = car.dir === 'down' ? -50 : midY + 10;
-                    car.passed = false;
+                // 描画
+                if (images.cars.complete) {
+                    // 1行目(Straight)か2行目(Diagonal)か
+                    const sy = car.isTurning ? 500 : 0; // car.jpgの行の高さに合わせて調整
+                    const sw = car.type.name === 'yellow' ? 180 : 120; // バスは少し長めに切り出し
+                    ctx.drawImage(images.cars, car.type.x + 40, sy + 50, sw, 150, car.x, car.y, 30, 40);
                 }
-                if (images[car.img].complete) ctx.drawImage(images[car.img], car.x, car.y, 32, 20);
+
+                // 収益
+                if (!car.passed && (car.x > midX || car.y > midY)) {
+                    gold += signalLevel; car.passed = true;
+                    document.getElementById('goldDisplay').innerText = gold;
+                }
             });
+
+            // 画面外の車を削除
+            cars = cars.filter(car => car.x < canvas.width + 100 && car.y < canvas.height + 100);
+
             requestAnimationFrame(update);
         }
-        update(); updateUI();
+        update();
     </script>
 </body>
 </html>
