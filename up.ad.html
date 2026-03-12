@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 50px; background: #eee; }
+        .ad-unit { display: none; }
+        .ad-unit.active { display: block; }
+    </style>
+</head>
+<body>
+
+    <div id="ad1" class="ad-unit active">
+        <div id="im-764978c67254443c95b683bf6f2dabfc">
+            <script async src="https://imp-adedge.i-mobile.co.jp/script/v1/spot.js?20220104"></script>
+            <script>(window.adsbyimobile=window.adsbyimobile||[]).push({pid:84561,mid:590804,asid:1925838,type:"banner",display:"inline",elementid:"im-764978c67254443c95b683bf6f2dabfc"})</script>
+        </div>
+    </div>
+
+    <div id="ad2" class="ad-unit">
+        <div id="im-4ab0a6429a5a41d6a1a3907857c308c4">
+            <script async src="https://imp-adedge.i-mobile.co.jp/script/v1/spot.js?20220104"></script>
+            <script>(window.adsbyimobile=window.adsbyimobile||[]).push({pid:84561,mid:590804,asid:1925839,type:"banner",display:"inline",elementid:"im-4ab0a6429a5a41d6a1a3907857c308c4"})</script>
+        </div>
+    </div>
+
+    <div id="ad3" class="ad-unit">
+        <div id="im-210fa6171b9445f1928ce2c11460b9f6">
+            <script async src="https://imp-adedge.i-mobile.co.jp/script/v1/spot.js?20220104"></script>
+            <script>(window.adsbyimobile=window.adsbyimobile||[]).push({pid:84561,mid:590804,asid:1925840,type:"banner",display:"inline",elementid:"im-210fa6171b9445f1928ce2c11460b9f6"})</script>
+        </div>
+    </div>
+
+    <div id="ad4" class="ad-unit">
+        <div id="im-37ff2f7612a6431c9f958319c0fcebd4">
+            <script async src="https://imp-adedge.i-mobile.co.jp/script/v1/spot.js?20220104"></script>
+            <script>(window.adsbyimobile=window.adsbyimobile||[]).push({pid:84561,mid:590804,asid:1925841,type:"banner",display:"inline",elementid:"im-37ff2f7612a6431c9f958319c0fcebd4"})</script>
+        </div>
+    </div>
+
+    <script>
+        let currentAd = 1;
+        const totalAds = 4;
+
+        setInterval(() => {
+            // 現在の広告を非表示にする
+            document.getElementById(`ad${currentAd}`).classList.remove('active');
+            
+            // 次の番号へ（4の次は1に戻る）
+            currentAd = (currentAd % totalAds) + 1;
+            
+            // 新しい広告を表示する
+            document.getElementById(`ad${currentAd}`).classList.add('active');
+        }, 30000); // 30秒 (30000ms) ごとに実行
+    </script>
+</body>
+</html>
