@@ -35,55 +35,61 @@
         function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight - 50; }
         window.addEventListener('resize', resizeCanvas); resizeCanvas();
 
-        // 新しい car.png 用の設定 (10台が並んでいる前提)
-        const carCount = 10;
-        let cars = [];
+// --- ゲーム本体 (index.html) の修正部分 ---
 
-        function spawnCar() {
-            if (isPaused) return;
-            const isVertical = Math.random() > 0.5;
-            const carIdx = Math.floor(Math.random() * carCount);
-            const car = {
-                x: isVertical ? canvas.width/2 + 5 : -60,
-                y: isVertical ? -60 : canvas.height/2 + 5,
-                speed: 2, dir: isVertical ? 'down' : 'right',
-                type: 'normal', carIdx: carIdx, passed: false, width: 35, height: 35
-            };
-            // 出現場所が混んでいたら出さない
-            if (!cars.some(o => Math.abs(o.x - car.x) < 70 && Math.abs(o.y - car.y) < 70)) cars.push(car);
+// 新しい car.png 用の設定 (10台が横に並んでいる前提)
+const carCount = 10; 
+let cars = [];
+
+function drawCar(car) {
+    if (car.type === 'emergency' && images.kinkyu.complete) {
+        // ...緊急車両の描画ロジックは前回通り...
+    } else if (car.type === 'normal' && images.cars.complete) {
+        ctx.save();
+        ctx.translate(car.x + car.width/2, car.y + car.height/2);
+        if (car.dir === 'right') ctx.rotate(Math.PI / 2);
+        
+        // ★新しい横並び画像の切り出し計算★
+        const spriteWidth = images.cars.width / carCount; // 1台あたりの幅
+        const spriteHeight = images.cars.height;         // 画像の高さ
+
+        // 左から carIdx 番目のマスを、(幅spriteWidth, 高さspriteHeight)で切り出す
+        ctx.drawImage(
+            images.cars, 
+            car.carIdx * spriteWidth, 0, spriteWidth, spriteHeight, 
+            -car.width/2, -car.height/2, car.width, car.height
+        );
+        ctx.restore();
+    }
+}
+
+// マウスクリック（タップ）時の処理
+canvas.addEventListener('mousedown', (e) => {
+    if (isPaused) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    let targetCarIndex = -1;
+    // 緊急車両へのタップ判定
+    cars.forEach((car, index) => {
+        if (car.type === 'emergency' && mouseX > car.x && mouseX < car.x + car.width && mouseY > car.y && mouseY < car.y + car.height) {
+            targetCarIndex = index; // 見つけた車のインデックスを保存
         }
-        setInterval(spawnCar, 2000);
+    });
 
-        function spawnEmergency() {
-            if (isPaused) return;
-            cars.push({
-                x: -60, y: canvas.height/2 + 5,
-                speed: 1.2, dir: 'right', type: 'emergency', eType: Math.floor(Math.random() * 3),
-                passed: false, width: 45, height: 45
-            });
-        }
-        setInterval(spawnEmergency, 10000);
-
-        window.addEventListener('message', (e) => {
-            if (e.data === 'adFinished') {
-                gold += 10; document.getElementById('goldDisplay').innerText = gold;
-                document.getElementById('adFrame').style.display = 'none'; isPaused = false;
-            }
-        });
-
-        canvas.addEventListener('mousedown', (e) => {
-            if (isPaused) return;
-            const rect = canvas.getBoundingClientRect();
-            const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-            let tapped = false;
-            cars.forEach(car => {
-                if (car.type === 'emergency' && mx > car.x && mx < car.x + car.width && my > car.y && my < car.y + car.height) {
-                    isPaused = true; document.getElementById('adFrame').style.display = 'block';
-                    tapped = true;
-                }
-            });
-            if (!tapped) signalState = (signalState + 1) % 4;
-        });
+    if (targetCarIndex !== -1) {
+        // タップ成功！
+        isPaused = true;
+        document.getElementById('adFrame').style.display = 'block';
+        // ★一度のみタップ可能にするため、その車を配列から削除★
+        cars.splice(targetCarIndex, 1); 
+    } else {
+        // 車へのタップでなければ信号切り替え
+        signalState = (signalState + 1) % 4;
+    }
+});
 
         function drawSignal(x, y, state) {
             if (!images.singo.complete) return;
