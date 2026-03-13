@@ -3,20 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <style>
-        body { margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #fff; font-family: sans-serif; overflow: hidden; }
-        #timerBox { font-size: 22px; font-weight: bold; color: #ff4444; margin-bottom: 20px; text-align: center; }
-        #closeBtn { 
-            display: none; /* 最初は消しておく */
-            padding: 18px 36px; background: #333; color: #fff; border: none; border-radius: 12px; 
-            font-size: 20px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        body { 
+            margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            height: 100vh; background: radial-gradient(circle, #222, #000); font-family: 'Helvetica Neue', Arial, sans-serif; color: #fff; overflow: hidden;
         }
+        /* サイレン風のアニメーション */
+        .siren-bg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(90deg, rgba(255,0,0,0.1), rgba(0,0,255,0.1));
+            animation: flash 0.5s infinite alternate; z-index: -1;
+        }
+        @keyframes flash { from { opacity: 0.3; } to { opacity: 0.8; } }
+
+        #timerBox { text-align: center; }
+        .loading-bar { width: 200px; height: 6px; background: #444; border-radius: 3px; margin: 20px auto; overflow: hidden; }
+        .progress { width: 0%; height: 100%; background: #ff4444; transition: width 1s linear; }
+
+        h2 { letter-spacing: 2px; text-shadow: 0 0 10px #ff4444; margin-bottom: 5px; }
+        p { font-size: 14px; color: #ccc; }
+
+        #closeBtn { 
+            display: none; padding: 15px 40px; background: #ffcc00; color: #000; 
+            border: none; border-radius: 50px; font-size: 18px; font-weight: bold;
+            cursor: pointer; box-shadow: 0 0 20px rgba(255, 204, 0, 0.6);
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
     </style>
 </head>
 <body>
-    <div id="timerBox">🚨 緊急車両が通過中 🚨<br>あと <span id="sec">5</span> 秒</div>
-    <button id="closeBtn" onclick="window.parent.postMessage('adFinished', '*')">× 閉じて10G獲得</button>
+    <div class="siren-bg"></div>
+    <div id="timerBox">
+        <h2>EMERGENCY</h2>
+        <p>緊急車両の通過を待っています...</p>
+        <div class="loading-bar"><div class="progress" id="pBar"></div></div>
+        <div style="font-size: 24px; font-weight: bold;"><span id="sec">5</span>s</div>
+    </div>
 
-    <div id="im-c2562e0c17be44b2b0fc807d1cf8f608" style="margin-top: 20px;">
+    <button id="closeBtn" onclick="window.parent.postMessage('adFinished', '*')">ボーナス 10G を受け取る</button>
+
+    <div style="margin-top: 30px; border: 1px solid #333; padding: 5px; border-radius: 5px; background: #fff;">
         <script async src="https://imp-adedge.i-mobile.co.jp/script/v1/spot.js?20220104"></script>
         <script>(window.adsbyimobile=window.adsbyimobile||[]).push({pid:84561,mid:590804,asid:1925759,type:"banner",display:"inline",elementid:"im-c2562e0c17be44b2b0fc807d1cf8f608"})</script>
     </div>
@@ -24,17 +50,15 @@
     <script>
         let count = 5;
         const btn = document.getElementById('closeBtn');
-        const secDisp = document.getElementById('sec');
-        const timerBox = document.getElementById('timerBox');
-
-        // カウントダウン処理
-        const timer = setInterval(() => {
+        const pBar = document.getElementById('pBar');
+        const interval = setInterval(() => {
             count--;
-            secDisp.innerText = count;
+            document.getElementById('sec').innerText = count;
+            pBar.style.width = ((5 - count) / 5 * 100) + "%";
             if (count <= 0) {
-                clearInterval(timer);
-                timerBox.style.display = 'none'; // テキストを消す
-                btn.style.display = 'block';     // ボタンを出現させる
+                clearInterval(interval);
+                document.getElementById('timerBox').style.display = 'none';
+                btn.style.display = 'block';
             }
         }, 1000);
     </script>
