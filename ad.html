@@ -3,35 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <style>
-        body { margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #fff; font-family: sans-serif; }
-        #timer { font-size: 20px; font-weight: bold; color: #ff4444; margin-bottom: 20px; }
+        body { margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #fff; font-family: sans-serif; overflow: hidden; }
+        #timerBox { font-size: 22px; font-weight: bold; color: #ff4444; margin-bottom: 20px; text-align: center; }
         #closeBtn { 
-            display: none; /* 最初は隠す */
-            padding: 15px 30px; background: #333; color: #fff; border: none; border-radius: 8px; 
-            font-size: 18px; cursor: pointer; 
+            display: none; /* 最初は消しておく */
+            padding: 18px 36px; background: #333; color: #fff; border: none; border-radius: 12px; 
+            font-size: 20px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
     </style>
 </head>
 <body>
-    <div id="timer">緊急車両が通過中... <span id="sec">5</span>秒</div>
+    <div id="timerBox">🚨 緊急車両が通過中 🚨<br>あと <span id="sec">5</span> 秒</div>
     <button id="closeBtn" onclick="window.parent.postMessage('adFinished', '*')">× 閉じて10G獲得</button>
 
-    <div id="adArea" style="margin-top: 20px;">
-        </div>
+    <div id="im-c2562e0c17be44b2b0fc807d1cf8f608" style="margin-top: 20px;">
+        <script async src="https://imp-adedge.i-mobile.co.jp/script/v1/spot.js?20220104"></script>
+        <script>(window.adsbyimobile=window.adsbyimobile||[]).push({pid:84561,mid:590804,asid:1925759,type:"banner",display:"inline",elementid:"im-c2562e0c17be44b2b0fc807d1cf8f608"})</script>
+    </div>
 
     <script>
         let count = 5;
         const btn = document.getElementById('closeBtn');
         const secDisp = document.getElementById('sec');
-        const timerText = document.getElementById('timer');
+        const timerBox = document.getElementById('timerBox');
 
-        const interval = setInterval(() => {
+        // カウントダウン処理
+        const timer = setInterval(() => {
             count--;
             secDisp.innerText = count;
             if (count <= 0) {
-                clearInterval(interval);
-                timerText.style.display = 'none'; // タイマーを消す
-                btn.style.display = 'block';     // ボタンを出す
+                clearInterval(timer);
+                timerBox.style.display = 'none'; // テキストを消す
+                btn.style.display = 'block';     // ボタンを出現させる
             }
         }, 1000);
     </script>
