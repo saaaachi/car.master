@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Road Master - New Sprite Edition</title>
+    <title>Road Master - Latest Edition</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background: #eee; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
         #adSpace { height: 50px; background: #ddd; overflow: hidden; border-bottom: 2px solid #ccc; }
@@ -17,6 +17,7 @@
     <div id="adSpace">
         <iframe src="up.ad.html" style="width: 100%; height: 50px; border: none;" scrolling="no"></iframe>
     </div>
+    
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
         <iframe id="adFrame" src="ad.html"></iframe>
@@ -35,68 +36,72 @@
         function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight - 50; }
         window.addEventListener('resize', resizeCanvas); resizeCanvas();
 
-// --- ゲーム本体 (index.html) の修正部分 ---
+        // ★新しい car.png は横に並んでいるので10分割で計算
+        const carCount = 10;
+        let cars = [];
 
-// 新しい car.png 用の設定 (10台が横に並んでいる前提)
-const carCount = 10; 
-let cars = [];
-
-function drawCar(car) {
-    if (car.type === 'emergency' && images.kinkyu.complete) {
-        // ...緊急車両の描画ロジックは前回通り...
-    } else if (car.type === 'normal' && images.cars.complete) {
-        ctx.save();
-        ctx.translate(car.x + car.width/2, car.y + car.height/2);
-        if (car.dir === 'right') ctx.rotate(Math.PI / 2);
-        
-        // ★新しい横並び画像の切り出し計算★
-        const spriteWidth = images.cars.width / carCount; // 1台あたりの幅
-        const spriteHeight = images.cars.height;         // 画像の高さ
-
-        // 左から carIdx 番目のマスを、(幅spriteWidth, 高さspriteHeight)で切り出す
-        ctx.drawImage(
-            images.cars, 
-            car.carIdx * spriteWidth, 0, spriteWidth, spriteHeight, 
-            -car.width/2, -car.height/2, car.width, car.height
-        );
-        ctx.restore();
-    }
-}
-
-// マウスクリック（タップ）時の処理
-canvas.addEventListener('mousedown', (e) => {
-    if (isPaused) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
-    let targetCarIndex = -1;
-    // 緊急車両へのタップ判定
-    cars.forEach((car, index) => {
-        if (car.type === 'emergency' && mouseX > car.x && mouseX < car.x + car.width && mouseY > car.y && mouseY < car.y + car.height) {
-            targetCarIndex = index; // 見つけた車のインデックスを保存
+        function spawnCar() {
+            if (isPaused) return;
+            const isVertical = Math.random() > 0.5;
+            const carIdx = Math.floor(Math.random() * carCount);
+            const car = {
+                x: isVertical ? canvas.width/2 + 5 : -60,
+                y: isVertical ? -60 : canvas.height/2 + 5,
+                speed: 2, dir: isVertical ? 'down' : 'right',
+                type: 'normal', carIdx: carIdx, passed: false, width: 40, height: 40
+            };
+            if (!cars.some(o => Math.abs(o.x - car.x) < 70 && Math.abs(o.y - car.y) < 70)) cars.push(car);
         }
-    });
+        setInterval(spawnCar, 2000);
 
-    if (targetCarIndex !== -1) {
-        // タップ成功！
-        isPaused = true;
-        document.getElementById('adFrame').style.display = 'block';
-        // ★一度のみタップ可能にするため、その車を配列から削除★
-        cars.splice(targetCarIndex, 1); 
-    } else {
-        // 車へのタップでなければ信号切り替え
-        signalState = (signalState + 1) % 4;
-    }
-});
+        function spawnEmergency() {
+            if (isPaused) return;
+            cars.push({
+                x: -60, y: canvas.height/2 + 5,
+                speed: 1.2, dir: 'right', type: 'emergency', eType: Math.floor(Math.random() * 3),
+                passed: false, width: 50, height: 50
+            });
+        }
+        setInterval(spawnEmergency, 12000); // 救急車は少しレアに
+
+        // 広告終了後の処理
+        window.addEventListener('message', (e) => {
+            if (e.data === 'adFinished') {
+                gold += 10;
+                document.getElementById('goldDisplay').innerText = gold;
+                document.getElementById('adFrame').style.display = 'none';
+                isPaused = false;
+            }
+        });
+
+        // タップ判定
+        canvas.addEventListener('mousedown', (e) => {
+            if (isPaused) return;
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+            
+            let targetIndex = -1;
+            cars.forEach((car, i) => {
+                if (car.type === 'emergency' && mx > car.x && mx < car.x + car.width && my > car.y && my < car.y + car.height) {
+                    targetIndex = i;
+                }
+            });
+
+            if (targetIndex !== -1) {
+                // ★緊急車両をタップしたら即座に消去（1回のみ有効）
+                cars.splice(targetIndex, 1);
+                isPaused = true;
+                document.getElementById('adFrame').style.display = 'block';
+            } else {
+                signalState = (signalState + 1) % 4;
+            }
+        });
 
         function drawSignal(x, y, state) {
             if (!images.singo.complete) return;
-            // 信号機が32x32になった時用の調整
-            const sSize = 32; 
-            const ly = { 'green': 0, 'yellow': 32, 'red': 64 }; // 仮の並び
-            ctx.drawImage(images.singo, 0, ly[state] || 0, sSize, sSize, x, y, 35, 35);
+            // 32x32サイズ想定の切り出し
+            const ly = { 'green': 0, 'yellow': 32, 'red': 64 };
+            ctx.drawImage(images.singo, 0, ly[state] || 0, 32, 32, x, y, 35, 35);
         }
 
         function update() {
@@ -105,7 +110,6 @@ canvas.addEventListener('mousedown', (e) => {
                 sirenFrame++;
                 const mx = canvas.width / 2, my = canvas.height / 2;
 
-                // 道路描画
                 ctx.fillStyle = '#444'; ctx.fillRect(0, my - 40, canvas.width, 80); ctx.fillRect(mx - 40, 0, 80, canvas.height);
 
                 let hCol = (signalState <= 1) ? (signalState === 0 ? 'green' : 'yellow') : 'red';
@@ -115,14 +119,12 @@ canvas.addEventListener('mousedown', (e) => {
                 cars.forEach((car, i) => {
                     let canMove = true;
                     if (car.type === 'normal') {
-                        // 信号停止判定
                         if (car.dir === 'right' && hCol === 'red' && car.x > mx - 90 && car.x < mx - 70) canMove = false;
                         if (car.dir === 'down' && vCol === 'red' && car.y > my - 90 && car.y < my - 70) canMove = false;
-                        // 前の車との車間距離
                         cars.forEach((o, j) => {
                             if (i !== j && car.dir === o.dir) {
                                 let dist = (car.dir === 'right') ? (o.x - car.x) : (o.y - car.y);
-                                if (dist > 0 && dist < 60) canMove = false;
+                                if (dist > 0 && dist < 65) canMove = false;
                             }
                         });
                     }
@@ -130,17 +132,19 @@ canvas.addEventListener('mousedown', (e) => {
 
                     ctx.save();
                     ctx.translate(car.x + car.width/2, car.y + car.height/2);
+                    // ★向きに合わせて画像を回転
                     if (car.dir === 'right') ctx.rotate(Math.PI / 2);
                     
                     if (car.type === 'emergency' && images.kinkyu.complete) {
                         const isLit = (Math.floor(sirenFrame / 15) % 2 === 0);
+                        // kinkyu.jpg の複雑なグリッドを避けて中心を切り出し
                         const sx = car.eType * (images.kinkyu.width / 3) + 35;
                         const sy = (isLit ? 240 : 20) + 35;
                         ctx.drawImage(images.kinkyu, sx, sy, 130, 130, -car.width/2, -car.height/2, car.width, car.height);
                     } else if (images.cars.complete) {
-                        // 新しい car.png の横並びから 1台分を切り出し
-                        const spriteW = images.cars.width / carCount;
-                        ctx.drawImage(images.cars, car.carIdx * spriteW, 0, spriteW, images.cars.height, -car.width/2, -car.height/2, car.width, car.height);
+                        // ★横長の car.png を正確に10分割して描画
+                        const sw = images.cars.width / carCount;
+                        ctx.drawImage(images.cars, car.carIdx * sw, 0, sw, images.cars.height, -car.width/2, -car.height/2, car.width, car.height);
                     }
                     ctx.restore();
 
