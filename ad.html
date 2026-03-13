@@ -2,38 +2,36 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Ad View</title>
     <style>
         body { margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #fff; font-family: sans-serif; }
-        #timer { margin-bottom: 10px; color: #666; font-size: 14px; }
-        #closeBtn { display: none; padding: 10px 20px; background: #333; color: #fff; border: none; border-radius: 5px; cursor: pointer; }
+        #timer { margin-bottom: 10px; font-weight: bold; color: #ff4444; }
+        #closeBtn { padding: 12px 24px; background: #ccc; color: #fff; border: none; border-radius: 5px; cursor: not-allowed; font-size: 16px; }
+        #closeBtn.active { background: #333; cursor: pointer; }
     </style>
 </head>
 <body>
     <div id="timer">緊急車両が通過中... あと <span id="sec">5</span> 秒</div>
-    <button id="closeBtn" onclick="rewardAndClose()">× 閉じて10G獲得</button>
+    <button id="closeBtn" disabled onclick="window.parent.postMessage('adFinished', '*')">× 閉じて10G獲得</button>
 
-    <div id="im-c2562e0c17be44b2b0fc807d1cf8f608">
+    <div id="im-c2562e0c17be44b2b0fc807d1cf8f608" style="margin-top:20px;">
         <script async src="https://imp-adedge.i-mobile.co.jp/script/v1/spot.js?20220104"></script>
         <script>(window.adsbyimobile=window.adsbyimobile||[]).push({pid:84561,mid:590804,asid:1925759,type:"banner",display:"inline",elementid:"im-c2562e0c17be44b2b0fc807d1cf8f608"})</script>
     </div>
 
     <script>
         let timeLeft = 5;
+        const btn = document.getElementById('closeBtn');
         const interval = setInterval(() => {
             timeLeft--;
             document.getElementById('sec').innerText = timeLeft;
             if (timeLeft <= 0) {
                 clearInterval(interval);
-                document.getElementById('timer').style.display = 'none';
-                document.getElementById('closeBtn').style.display = 'block';
+                document.getElementById('timer').innerText = "獲得準備完了！";
+                btn.disabled = false; // ボタンを有効化
+                btn.classList.add('active'); // 見た目を変更
+                btn.style.cursor = "pointer";
             }
         }, 1000);
-
-        function rewardAndClose() {
-            // 親画面に報酬獲得を通知
-            window.parent.postMessage('adFinished', '*');
-        }
     </script>
 </body>
 </html>
