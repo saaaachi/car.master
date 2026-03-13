@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Road Master - Latest Edition</title>
+    <title>Road Master - Fix Edition</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background: #eee; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
         #adSpace { height: 50px; background: #ddd; overflow: hidden; border-bottom: 2px solid #ccc; }
@@ -36,8 +36,7 @@
         function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight - 50; }
         window.addEventListener('resize', resizeCanvas); resizeCanvas();
 
-        // ★新しい car.png は横に並んでいるので10分割で計算
-        const carCount = 10;
+        const carCount = 10; 
         let cars = [];
 
         function spawnCar() {
@@ -45,26 +44,25 @@
             const isVertical = Math.random() > 0.5;
             const carIdx = Math.floor(Math.random() * carCount);
             const car = {
-                x: isVertical ? canvas.width/2 + 5 : -60,
-                y: isVertical ? -60 : canvas.height/2 + 5,
+                x: isVertical ? canvas.width/2 + 5 : -80,
+                y: isVertical ? -80 : canvas.height/2 + 5,
                 speed: 2, dir: isVertical ? 'down' : 'right',
-                type: 'normal', carIdx: carIdx, passed: false, width: 40, height: 40
+                type: 'normal', carIdx: carIdx, passed: false, width: 45, height: 45
             };
-            if (!cars.some(o => Math.abs(o.x - car.x) < 70 && Math.abs(o.y - car.y) < 70)) cars.push(car);
+            if (!cars.some(o => Math.abs(o.x - car.x) < 80 && Math.abs(o.y - car.y) < 80)) cars.push(car);
         }
         setInterval(spawnCar, 2000);
 
         function spawnEmergency() {
             if (isPaused) return;
             cars.push({
-                x: -60, y: canvas.height/2 + 5,
+                x: -80, y: canvas.height/2 + 5,
                 speed: 1.2, dir: 'right', type: 'emergency', eType: Math.floor(Math.random() * 3),
-                passed: false, width: 50, height: 50
+                passed: false, width: 55, height: 55
             });
         }
-        setInterval(spawnEmergency, 12000); // 救急車は少しレアに
+        setInterval(spawnEmergency, 12000);
 
-        // 広告終了後の処理
         window.addEventListener('message', (e) => {
             if (e.data === 'adFinished') {
                 gold += 10;
@@ -74,11 +72,11 @@
             }
         });
 
-        // タップ判定
         canvas.addEventListener('mousedown', (e) => {
             if (isPaused) return;
             const rect = canvas.getBoundingClientRect();
-            const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+            const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const my = (e.clientY - rect.top) * (canvas.height / rect.height);
             
             let targetIndex = -1;
             cars.forEach((car, i) => {
@@ -88,7 +86,6 @@
             });
 
             if (targetIndex !== -1) {
-                // ★緊急車両をタップしたら即座に消去（1回のみ有効）
                 cars.splice(targetIndex, 1);
                 isPaused = true;
                 document.getElementById('adFrame').style.display = 'block';
@@ -99,9 +96,8 @@
 
         function drawSignal(x, y, state) {
             if (!images.singo.complete) return;
-            // 32x32サイズ想定の切り出し
             const ly = { 'green': 0, 'yellow': 32, 'red': 64 };
-            ctx.drawImage(images.singo, 0, ly[state] || 0, 32, 32, x, y, 35, 35);
+            ctx.drawImage(images.singo, 0, ly[state] || 0, 32, 32, x, y, 40, 40);
         }
 
         function update() {
@@ -110,21 +106,23 @@
                 sirenFrame++;
                 const mx = canvas.width / 2, my = canvas.height / 2;
 
-                ctx.fillStyle = '#444'; ctx.fillRect(0, my - 40, canvas.width, 80); ctx.fillRect(mx - 40, 0, 80, canvas.height);
+                ctx.fillStyle = '#444'; 
+                ctx.fillRect(0, my - 45, canvas.width, 90); 
+                ctx.fillRect(mx - 45, 0, 90, canvas.height);
 
                 let hCol = (signalState <= 1) ? (signalState === 0 ? 'green' : 'yellow') : 'red';
                 let vCol = (signalState >= 2) ? (signalState === 2 ? 'green' : 'yellow') : 'red';
-                drawSignal(mx - 80, my + 45, hCol); drawSignal(mx + 45, my - 80, vCol);
+                drawSignal(mx - 90, my + 50, hCol); drawSignal(mx + 50, my - 90, vCol);
 
                 cars.forEach((car, i) => {
                     let canMove = true;
                     if (car.type === 'normal') {
-                        if (car.dir === 'right' && hCol === 'red' && car.x > mx - 90 && car.x < mx - 70) canMove = false;
-                        if (car.dir === 'down' && vCol === 'red' && car.y > my - 90 && car.y < my - 70) canMove = false;
+                        if (car.dir === 'right' && hCol === 'red' && car.x > mx - 100 && car.x < mx - 80) canMove = false;
+                        if (car.dir === 'down' && vCol === 'red' && car.y > my - 100 && car.y < my - 80) canMove = false;
                         cars.forEach((o, j) => {
                             if (i !== j && car.dir === o.dir) {
                                 let dist = (car.dir === 'right') ? (o.x - car.x) : (o.y - car.y);
-                                if (dist > 0 && dist < 65) canMove = false;
+                                if (dist > 0 && dist < 75) canMove = false;
                             }
                         });
                     }
@@ -132,19 +130,18 @@
 
                     ctx.save();
                     ctx.translate(car.x + car.width/2, car.y + car.height/2);
-                    // ★向きに合わせて画像を回転
                     if (car.dir === 'right') ctx.rotate(Math.PI / 2);
                     
                     if (car.type === 'emergency' && images.kinkyu.complete) {
                         const isLit = (Math.floor(sirenFrame / 15) % 2 === 0);
-                        // kinkyu.jpg の複雑なグリッドを避けて中心を切り出し
-                        const sx = car.eType * (images.kinkyu.width / 3) + 35;
-                        const sy = (isLit ? 240 : 20) + 35;
-                        ctx.drawImage(images.kinkyu, sx, sy, 130, 130, -car.width/2, -car.height/2, car.width, car.height);
+                        const sx = car.eType * (images.kinkyu.width / 3) + 30;
+                        const sy = (isLit ? 240 : 20) + 30;
+                        ctx.drawImage(images.kinkyu, sx, sy, 140, 140, -car.width/2, -car.height/2, car.width, car.height);
                     } else if (images.cars.complete) {
-                        // ★横長の car.png を正確に10分割して描画
+                        // ★ car.png の切り出しサイズを大きく (120x120想定)
                         const sw = images.cars.width / carCount;
-                        ctx.drawImage(images.cars, car.carIdx * sw, 0, sw, images.cars.height, -car.width/2, -car.height/2, car.width, car.height);
+                        const sh = images.cars.height;
+                        ctx.drawImage(images.cars, car.carIdx * sw, 0, sw, sh, -car.width/2, -car.height/2, car.width, car.height);
                     }
                     ctx.restore();
 
@@ -153,7 +150,7 @@
                         document.getElementById('goldDisplay').innerText = gold;
                     }
                 });
-                cars = cars.filter(c => c.x < canvas.width + 100 && c.y < canvas.height + 100);
+                cars = cars.filter(c => c.x < canvas.width + 120 && c.y < canvas.height + 120);
             }
             requestAnimationFrame(update);
         }
