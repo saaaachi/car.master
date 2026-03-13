@@ -3,14 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Road Master - Fix Edition</title>
+    <title>Road Master - Final Fix</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background: #eee; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
-        #adSpace { height: 50px; background: #ddd; overflow: hidden; border-bottom: 2px solid #ccc; }
-        #gameContainer { position: relative; flex-grow: 1; }
+        #adSpace { height: 50px; background: #ddd; border-bottom: 2px solid #ccc; z-index: 5; }
+        #gameContainer { position: relative; flex-grow: 1; overflow: hidden; }
         canvas { display: block; background: #55a846; width: 100%; height: 100%; }
         .ui-panel { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #fff; padding: 10px; border-radius: 8px; font-size: 14px; pointer-events: none; z-index: 10; }
-        #adFrame { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; background: rgba(255,255,255,0.95); z-index: 100; }
+        /* 広告画面を一番手前に */
+        #adFrame { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; background: #fff; z-index: 1000; }
     </style>
 </head>
 <body>
@@ -36,13 +37,12 @@
         function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight - 50; }
         window.addEventListener('resize', resizeCanvas); resizeCanvas();
 
-        const carCount = 10; 
         let cars = [];
 
         function spawnCar() {
             if (isPaused) return;
             const isVertical = Math.random() > 0.5;
-            const carIdx = Math.floor(Math.random() * carCount);
+            const carIdx = Math.floor(Math.random() * 5); // 横に5種類
             const car = {
                 x: isVertical ? canvas.width/2 + 5 : -80,
                 y: isVertical ? -80 : canvas.height/2 + 5,
@@ -57,7 +57,7 @@
             if (isPaused) return;
             cars.push({
                 x: -80, y: canvas.height/2 + 5,
-                speed: 1.2, dir: 'right', type: 'emergency', eType: Math.floor(Math.random() * 3),
+                speed: 1.5, dir: 'right', type: 'emergency', eType: Math.floor(Math.random() * 3),
                 passed: false, width: 55, height: 55
             });
         }
@@ -65,8 +65,7 @@
 
         window.addEventListener('message', (e) => {
             if (e.data === 'adFinished') {
-                gold += 10;
-                document.getElementById('goldDisplay').innerText = gold;
+                gold += 10; document.getElementById('goldDisplay').innerText = gold;
                 document.getElementById('adFrame').style.display = 'none';
                 isPaused = false;
             }
@@ -88,7 +87,10 @@
             if (targetIndex !== -1) {
                 cars.splice(targetIndex, 1);
                 isPaused = true;
-                document.getElementById('adFrame').style.display = 'block';
+                // 広告のiframeを表示
+                const frame = document.getElementById('adFrame');
+                frame.src = "ad.html"; // タイマーをリセットするためにsrcを再設定
+                frame.style.display = 'block';
             } else {
                 signalState = (signalState + 1) % 4;
             }
@@ -105,10 +107,7 @@
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 sirenFrame++;
                 const mx = canvas.width / 2, my = canvas.height / 2;
-
-                ctx.fillStyle = '#444'; 
-                ctx.fillRect(0, my - 45, canvas.width, 90); 
-                ctx.fillRect(mx - 45, 0, 90, canvas.height);
+                ctx.fillStyle = '#444'; ctx.fillRect(0, my - 45, canvas.width, 90); ctx.fillRect(mx - 45, 0, 90, canvas.height);
 
                 let hCol = (signalState <= 1) ? (signalState === 0 ? 'green' : 'yellow') : 'red';
                 let vCol = (signalState >= 2) ? (signalState === 2 ? 'green' : 'yellow') : 'red';
@@ -138,9 +137,9 @@
                         const sy = (isLit ? 240 : 20) + 30;
                         ctx.drawImage(images.kinkyu, sx, sy, 140, 140, -car.width/2, -car.height/2, car.width, car.height);
                     } else if (images.cars.complete) {
-                        // ★ car.png の切り出しサイズを大きく (120x120想定)
-                        const sw = images.cars.width / carCount;
-                        const sh = images.cars.height;
+                        // 5x2のスプライトに合わせて切り出し (1段目の前向き画像を使用)
+                        const sw = images.cars.width / 5;
+                        const sh = images.cars.height / 2;
                         ctx.drawImage(images.cars, car.carIdx * sw, 0, sw, sh, -car.width/2, -car.height/2, car.width, car.height);
                     }
                     ctx.restore();
