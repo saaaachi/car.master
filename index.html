@@ -137,12 +137,27 @@
                         const sy = (isLit ? 240 : 20) + 30;
                         ctx.drawImage(images.kinkyu, sx, sy, 140, 140, -car.width/2, -car.height/2, car.width, car.height);
                     } else if (images.cars.complete) {
-                        // 5x2のスプライトに合わせて切り出し (1段目の前向き画像を使用)
-                        const sw = images.cars.width / 5;
-                        const sh = images.cars.height / 2;
-                        ctx.drawImage(images.cars, car.carIdx * sw, 0, sw, sh, -car.width/2, -car.height/2, car.width, car.height);
-                    }
-                    ctx.restore();
+                        // 5x2のスプライトのうち、1段目（y=0）の「前向き」画像だけを使用
+　　　　　　　　　　　　　　　　const sw = images.cars.width / 5;
+　　　　　　　　　　　　　　　　const sh = images.cars.height / 2;
+
+　　　　　　　　　　　　　　ctx.save();
+　　　　　　　　　　　　　　ctx.translate(car.x + car.width/2, car.y + car.height/2);
+
+　　　　　　　　　　　　　　　　// 向きの制御
+　　　　　　　　　　　　　　　if (car.dir === 'right') {
+    ctx.rotate(Math.PI / 2); // 右向き（横道路）
+} else if (car.dir === 'down') {
+    ctx.rotate(Math.PI);     // ★180度回転してライトを前（下）に向ける★
+}
+
+// 描画（常に1段目の carIdx 番目を使用）
+ctx.drawImage(
+    images.cars, 
+    car.carIdx * sw, 0, sw, sh, 
+    -car.width/2, -car.height/2, car.width, car.height
+);
+ctx.restore();
 
                     if (!car.passed && (car.x > mx || car.y > my)) {
                         gold += (car.type === 'emergency' ? 0 : signalLevel); car.passed = true;
