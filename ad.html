@@ -18,20 +18,19 @@
         <script>(window.adsbyimobile=window.adsbyimobile||[]).push({pid:84561,mid:590804,asid:1925759,type:"banner",display:"inline",elementid:"im-c2562e0c17be44b2b0fc807d1cf8f608"})</script>
     </div>
 
-    <script>
-        let timeLeft = 5;
-        const btn = document.getElementById('closeBtn');
-        const interval = setInterval(() => {
-            timeLeft--;
-            document.getElementById('sec').innerText = timeLeft;
-            if (timeLeft <= 0) {
-                clearInterval(interval);
-                document.getElementById('timer').innerText = "獲得準備完了！";
-                btn.disabled = false; // ボタンを有効化
-                btn.classList.add('active'); // 見た目を変更
-                btn.style.cursor = "pointer";
-            }
-        }, 1000);
-    </script>
+<script>
+    let timeLeft = 5;
+    const btn = document.getElementById('closeBtn');
+    const timer = setInterval(() => {
+        timeLeft--;
+        document.getElementById('sec').innerText = timeLeft;
+        if (timeLeft <= 0) {
+            clearInterval(timer);
+            btn.disabled = false; // ボタンを有効化
+            btn.style.cursor = "pointer";
+            btn.style.background = "#333";
+        }
+    }, 1000);
+</script>
 </body>
 </html>
