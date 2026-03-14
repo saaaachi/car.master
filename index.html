@@ -3,28 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Road Master - Evolution</title>
+    <title>Road Master - Flow Fix</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background: #7ab36a; font-family: sans-serif; }
-        #gameContainer { position: relative; width: 100vw; height: 100vh; padding-top: 50px; }
-        canvas { display: block; }
+        #gameContainer { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column; }
+        
+        /* 広告スペース */
+        #adArea { width: 100%; height: 50px; background: #eee; z-index: 1000; }
+        
+        canvas { display: block; flex-grow: 1; }
+
+        /* ステータスバー（IMG_6003のスタイルを再現） */
         .status-bar { 
             position: absolute; top: 60px; left: 10px; right: 10px; 
-            display: flex; justify-content: space-around; 
-            background: rgba(0,0,0,0.8); color: #fff; padding: 10px; border-radius: 20px; font-size: 14px; z-index: 100;
+            display: flex; justify-content: space-around; align-items: center;
+            background: rgba(0,0,0,0.85); color: #fff; padding: 8px; border-radius: 20px; font-size: 14px; z-index: 100;
         }
+
         .panel { 
             display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: #fff; border: 4px solid #333; padding: 20px; border-radius: 20px; z-index: 2000; width: 250px; text-align: center;
         }
-        .btn { width: 100%; padding: 15px; background: #ffcc00; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 14px; }
-        .btn:disabled { background: #ccc; cursor: not-allowed; }
-        #adFrame { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 5000; flex-direction: column; align-items: center; justify-content: center; }
+        .btn { width: 100%; padding: 15px; background: #ffcc00; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 10px; }
     </style>
 </head>
 <body>
-    <div style="width:100%; height:50px; background:#eee; text-align:center; position:fixed; top:0; z-index:1000;">
-        <p style="margin:0; font-size:10px; color:#999;">AD SPACE</p>
+    <div id="adArea">
+        <iframe src="up.ad.html" width="100%" height="50" frameborder="0" scrolling="no"></iframe>
     </div>
 
     <div id="gameContainer">
@@ -36,15 +41,10 @@
         </div>
 
         <div id="signalPanel" class="panel">
-            <h3 style="margin-top:0">🚥 信号機の進化</h3>
+            <h3 style="margin-top:0">🚥 信号強化</h3>
             <p id="nextUpgradeText">次へ: 30G</p>
             <button id="upgradeBtn" class="btn" onclick="upgradeSignal()">アップグレード</button>
             <button class="btn" style="background:#eee" onclick="closeAll()">閉じる</button>
-        </div>
-
-        <div id="adFrame">
-            <h2>🚨 緊急車両に協力しました！</h2>
-            <button class="btn" onclick="closeAd()">10G獲得して閉じる</button>
         </div>
     </div>
 
@@ -55,7 +55,7 @@
         let lastChangeTime = Date.now(), autoChangeTime = 5;
 
         const images = {};
-        const assets = { cars: 'images/car.png', house: 'images/house.png', tatemono: 'images/tatemono.png', singo: 'images/singo.png' };
+        const assets = { cars: 'images/car.png', singo: 'singo.png' };
         for (let key in assets) { images[key] = new Image(); images[key].src = assets[key]; }
 
         const upgradeInfo = [
@@ -67,39 +67,24 @@
 
         let cars = [];
 
-        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
         window.addEventListener('resize', resize); resize();
 
-        function updateUI() {
-            document.getElementById('goldText').innerText = gold;
-            document.getElementById('sigLvText').innerText = signalLevel;
-            const info = upgradeInfo[signalLevel - 1];
-            document.getElementById('incomeText').innerText = info.income;
-            
-            const btn = document.getElementById('upgradeBtn');
-            const nextText = document.getElementById('nextUpgradeText');
-            if (info.next) {
-                nextText.innerText = `次へ: ${info.next}G (収益+1)`;
-                btn.disabled = gold < info.next;
-            } else {
-                nextText.innerText = "最高レベルです！";
-                btn.style.display = 'none';
-            }
-        }
-
         function spawnCar() {
-            if (isPaused) return;
+            if (isPaused || cars.length > 25) return; // 溜まりすぎ防止
             const dirs = ['right', 'down', 'left', 'up'];
             const dir = dirs[Math.floor(Math.random()*4)];
             const mx = canvas.width/2, my = canvas.height/2;
             let x, y;
-            if(dir==='right'){ x=-50; y=my+5; } else if(dir==='down'){ x=mx+5; y=-50; }
-            else if(dir==='left'){ x=canvas.width+50; y=my-45; } else { x=mx-45; y=canvas.height+50; }
+            if(dir==='right'){ x=-50; y=my+10; } else if(dir==='down'){ x=mx+10; y=-50; }
+            else if(dir==='left'){ x=canvas.width+50; y=my-40; } else { x=mx-40; y=canvas.height+50; }
             
-            const isEm = Math.random() < 0.15;
-            cars.push({ x, y, speed: isEm?5:3, dir, isEmergency: isEm, passed: false, id: Math.random() });
+            cars.push({ x, y, speed: 2.8, dir, passed: false, id: Math.random() });
         }
-        setInterval(spawnCar, 1500);
+        setInterval(spawnCar, 1200);
 
         function update() {
             if (!isPaused) {
@@ -111,24 +96,32 @@
                     lastChangeTime = Date.now();
                 }
 
-                ctx.fillStyle = '#444'; ctx.fillRect(0, my-50, canvas.width, 100); ctx.fillRect(mx-50, 0, 100, canvas.height);
+                // 道路
+                ctx.fillStyle = '#444';
+                ctx.fillRect(0, my-50, canvas.width, 100);
+                ctx.fillRect(mx-50, 0, 100, canvas.height);
 
-                // 信号の描画
+                // 信号機の描画（縦用と横用の2箇所）
                 if(images.singo.complete) {
                     const sw = images.singo.width / 4;
                     const sh = images.singo.height / 2;
-                    // signalState 0,1 は青信号行(下)、2,3 は赤信号行(上)
-                    const row = (signalState >= 2) ? 0 : 1; 
-                    const col = signalLevel - 1; // 1〜4で色が変わる
-                    ctx.drawImage(images.singo, col * sw, row * sh, sw, sh, mx-25, my-25, 50, 50);
+                    const col = signalLevel - 1;
+                    
+                    // 横用信号（左側に配置、縦方向の交通を制御）
+                    ctx.drawImage(images.singo, col*sw, (signalState >= 2 ? 0 : sh), sw, sh, mx-75, my-25, 40, 40);
+                    // 縦用信号（上側に配置、横方向の交通を制御）
+                    ctx.drawImage(images.singo, col*sw, (signalState < 2 ? 0 : sh), sw, sh, mx-25, my-75, 40, 40);
                 }
 
-                let hRed = signalState >= 2, vRed = signalState <= 1;
+                // 信号の状態（0,1: 縦が青, 2,3: 横が青）
+                const vGo = signalState < 2;
+                const hGo = signalState >= 2;
 
                 cars.forEach(car => {
                     let canMove = true;
-                    // 渋滞判定をさらに最適化
-                    const front = cars.find(o => o.id !== car.id && Math.abs(o.x - car.x) < 35 && Math.abs(o.y - car.y) < 35);
+
+                    // 車間距離の維持（渋滞解消のため判定を最小限に）
+                    const front = cars.find(o => o.id !== car.id && Math.abs(o.x - car.x) < 45 && Math.abs(o.y - car.y) < 45);
                     if(front) {
                         if(car.dir==='right' && front.x > car.x) canMove = false;
                         if(car.dir==='down' && front.y > car.y) canMove = false;
@@ -136,30 +129,29 @@
                         if(car.dir==='up' && front.y < car.y) canMove = false;
                     }
 
-                    if (!car.isEmergency) {
-                        const stopZone = 75;
-                        if(car.dir==='right'&&hRed&&car.x>mx-stopZone&&car.x<mx-60) canMove = false;
-                        if(car.dir==='down'&&vRed&&car.y>my-stopZone&&car.y<my-60) canMove = false;
-                        if(car.dir==='left'&&hRed&&car.x<mx+stopZone&&car.x>mx+40) canMove = false;
-                        if(car.dir==='up'&&vRed&&car.y<my+stopZone&&car.y>my+40) canMove = false;
-                    }
+                    // 信号判定
+                    const stopLine = 85;
+                    if(car.dir==='right' && !hGo && car.x > mx-stopLine && car.x < mx-60) canMove = false;
+                    if(car.dir==='down' && !vGo && car.y > my-stopLine && car.y < my-60) canMove = false;
+                    if(car.dir==='left' && !hGo && car.x < mx+stopLine && car.x > mx+40) canMove = false;
+                    if(car.dir==='up' && !vGo && car.y < my+stopLine && car.y > my+40) canMove = false;
 
                     if(canMove) {
                         if(car.dir==='right') car.x+=car.speed; else if(car.dir==='down') car.y+=car.speed;
                         else if(car.dir==='left') car.x-=car.speed; else car.y-=car.speed;
                     }
 
+                    // 車の描画（スプライトシート一番左上のみ使用）
                     ctx.save();
                     ctx.translate(car.x+20, car.y+20);
                     if(car.dir==='right') ctx.rotate(Math.PI/2); else if(car.dir==='down') ctx.rotate(Math.PI); else if(car.dir==='left') ctx.rotate(-Math.PI/2);
                     if(images.cars.complete) {
-                        // スプライトシートの左上(赤い車)だけを使用
                         ctx.drawImage(images.cars, 0, 0, images.cars.width/5, images.cars.height/2, -20, -20, 40, 40);
                     }
                     ctx.restore();
 
-                    // 収益判定（交差点進入時）
-                    if (!car.passed && Math.abs(car.x - mx) < 40 && Math.abs(car.y - my) < 40) {
+                    // 収益判定
+                    if (!car.passed && Math.abs(car.x - mx) < 35 && Math.abs(car.y - my) < 35) {
                         gold += upgradeInfo[signalLevel-1].income;
                         car.passed = true;
                         updateUI();
@@ -170,10 +162,27 @@
             requestAnimationFrame(update);
         }
 
+        function updateUI() {
+            document.getElementById('goldText').innerText = gold;
+            document.getElementById('sigLvText').innerText = signalLevel;
+            const info = upgradeInfo[signalLevel - 1];
+            document.getElementById('incomeText').innerText = info.income;
+            const btn = document.getElementById('upgradeBtn');
+            if (info.next) {
+                document.getElementById('nextUpgradeText').innerText = `次へ: ${info.next}G`;
+                btn.disabled = gold < info.next;
+            } else {
+                document.getElementById('nextUpgradeText').innerText = "Max Level";
+                btn.style.display = 'none';
+            }
+        }
+
         canvas.addEventListener('mousedown', (e) => {
-            const mx = e.clientX, my = e.clientY;
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
             const cx = canvas.width/2, cy = canvas.height/2;
-            if (Math.abs(mx-cx)<50 && Math.abs(my-cy)<50) { 
+            if (Math.abs(mx-cx)<80 && Math.abs(my-cy)<80) { 
                 document.getElementById('signalPanel').style.display='block'; 
                 isPaused=true;
                 updateUI();
@@ -182,17 +191,10 @@
 
         function upgradeSignal() {
             const nextCost = upgradeInfo[signalLevel-1].next;
-            if(nextCost && gold >= nextCost) {
-                gold -= nextCost;
-                signalLevel++;
-                updateUI();
-                closeAll();
-            }
+            if(nextCost && gold >= nextCost) { gold -= nextCost; signalLevel++; updateUI(); closeAll(); }
         }
-
         function closeAll() { document.querySelectorAll('.panel').forEach(p=>p.style.display='none'); isPaused=false; }
         
-        updateUI();
         update();
     </script>
 </body>
