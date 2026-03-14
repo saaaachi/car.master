@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Road Master - Final Fix</title>
+    <title>Road Master - Full Edition</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background: #eee; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
         #adSpace { height: 50px; background: #ddd; border-bottom: 2px solid #ccc; z-index: 5; }
         #gameContainer { position: relative; flex-grow: 1; overflow: hidden; }
         canvas { display: block; background: #55a846; width: 100%; height: 100%; }
         .ui-panel { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #fff; padding: 10px; border-radius: 8px; font-size: 14px; pointer-events: none; z-index: 10; }
-        /* 広告画面を一番手前に */
         #adFrame { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; background: #fff; z-index: 1000; }
     </style>
 </head>
@@ -42,21 +41,21 @@
         function spawnCar() {
             if (isPaused) return;
             const isVertical = Math.random() > 0.5;
-            const carIdx = Math.floor(Math.random() * 5); // 横に5種類
+            const carIdx = Math.floor(Math.random() * 5); 
             const car = {
-                x: isVertical ? canvas.width/2 + 5 : -80,
-                y: isVertical ? -80 : canvas.height/2 + 5,
+                x: isVertical ? canvas.width/2 + 5 : -100,
+                y: isVertical ? -100 : canvas.height/2 + 5,
                 speed: 2, dir: isVertical ? 'down' : 'right',
                 type: 'normal', carIdx: carIdx, passed: false, width: 45, height: 45
             };
-            if (!cars.some(o => Math.abs(o.x - car.x) < 80 && Math.abs(o.y - car.y) < 80)) cars.push(car);
+            if (!cars.some(o => Math.abs(o.x - car.x) < 85 && Math.abs(o.y - car.y) < 85)) cars.push(car);
         }
         setInterval(spawnCar, 2000);
 
         function spawnEmergency() {
             if (isPaused) return;
             cars.push({
-                x: -80, y: canvas.height/2 + 5,
+                x: -100, y: canvas.height/2 + 5,
                 speed: 1.5, dir: 'right', type: 'emergency', eType: Math.floor(Math.random() * 3),
                 passed: false, width: 55, height: 55
             });
@@ -87,9 +86,8 @@
             if (targetIndex !== -1) {
                 cars.splice(targetIndex, 1);
                 isPaused = true;
-                // 広告のiframeを表示
                 const frame = document.getElementById('adFrame');
-                frame.src = "ad.html"; // タイマーをリセットするためにsrcを再設定
+                frame.src = "ad.html"; 
                 frame.style.display = 'block';
             } else {
                 signalState = (signalState + 1) % 4;
@@ -116,12 +114,12 @@
                 cars.forEach((car, i) => {
                     let canMove = true;
                     if (car.type === 'normal') {
-                        if (car.dir === 'right' && hCol === 'red' && car.x > mx - 100 && car.x < mx - 80) canMove = false;
-                        if (car.dir === 'down' && vCol === 'red' && car.y > my - 100 && car.y < my - 80) canMove = false;
+                        if (car.dir === 'right' && hCol === 'red' && car.x > mx - 105 && car.x < mx - 85) canMove = false;
+                        if (car.dir === 'down' && vCol === 'red' && car.y > my - 105 && car.y < my - 85) canMove = false;
                         cars.forEach((o, j) => {
                             if (i !== j && car.dir === o.dir) {
                                 let dist = (car.dir === 'right') ? (o.x - car.x) : (o.y - car.y);
-                                if (dist > 0 && dist < 75) canMove = false;
+                                if (dist > 0 && dist < 80) canMove = false;
                             }
                         });
                     }
@@ -129,7 +127,12 @@
 
                     ctx.save();
                     ctx.translate(car.x + car.width/2, car.y + car.height/2);
-                    if (car.dir === 'right') ctx.rotate(Math.PI / 2);
+                    
+                    if (car.dir === 'right') {
+                        ctx.rotate(Math.PI / 2);
+                    } else if (car.dir === 'down') {
+                        ctx.rotate(Math.PI); // ライトを下に(180度)向ける
+                    }
                     
                     if (car.type === 'emergency' && images.kinkyu.complete) {
                         const isLit = (Math.floor(sirenFrame / 15) % 2 === 0);
@@ -137,33 +140,19 @@
                         const sy = (isLit ? 240 : 20) + 30;
                         ctx.drawImage(images.kinkyu, sx, sy, 140, 140, -car.width/2, -car.height/2, car.width, car.height);
                     } else if (images.cars.complete) {
-                        // 5x2のスプライトのうち、1段目（y=0）の「前向き」画像だけを使用
-　　　　　　　　　　　　　　　　const sw = images.cars.width / 5;
-　　　　　　　　　　　　　　　　const sh = images.cars.height / 2;
-
-　　　　　　　　　　　　　　ctx.save();
-　　　　　　　　　　　　　　ctx.translate(car.x + car.width/2, car.y + car.height/2);
-
-　　　　　　　　　　　　　　　　// 向きの制御
-　　　　　　　　　　　　　　　if (car.dir === 'right') {
-                     ctx.rotate(Math.PI / 2); // 右向き（横道路）
-　　　　　　　　　　　　　　} else if (car.dir === 'down') {
-                     ctx.rotate(Math.PI);     // ★180度回転してライトを前（下）に向ける★
-　　　　　　　　　　　　　　}
-
-　　　　　　　　　　　　　　　　// 描画（常に1段目の carIdx 番目を使用）
-　　　　　　　　　　　　　　ctx.drawImage(
-　　　　　　　　　　　　　　images.cars, 
-                     car.carIdx * sw, 0, sw, sh, 
-                     -car.width/2, -car.height/2, car.width, car.hei);
-　　　　　　　　　　　　　　ctx.restore();
+                        const sw = images.cars.width / 5;
+                        const sh = images.cars.height / 2;
+                        // y座標は0(1段目)に固定して斜め車両を防止
+                        ctx.drawImage(images.cars, car.carIdx * sw, 0, sw, sh, -car.width/2, -car.height/2, car.width, car.height);
+                    }
+                    ctx.restore();
 
                     if (!car.passed && (car.x > mx || car.y > my)) {
                         gold += (car.type === 'emergency' ? 0 : signalLevel); car.passed = true;
                         document.getElementById('goldDisplay').innerText = gold;
                     }
                 });
-                cars = cars.filter(c => c.x < canvas.width + 120 && c.y < canvas.height + 120);
+                cars = cars.filter(c => c.x < canvas.width + 150 && c.y < canvas.height + 150);
             }
             requestAnimationFrame(update);
         }
