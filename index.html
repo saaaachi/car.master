@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Road Master - Happiness Flow</title>
+    <title>Road Master - Double Signal</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background: #7ab36a; font-family: sans-serif; }
         #gameContainer { position: relative; width: 100vw; height: 100vh; }
@@ -67,7 +67,7 @@
         function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
         window.addEventListener('resize', resize); resize();
 
-        // 人口が幸福度（整数値）を追いかけるロジック
+        // 人口連動ロジック
         setInterval(() => {
             let targetPop = Math.max(1, Math.floor(happy));
             if (pop < targetPop) pop++;
@@ -76,7 +76,10 @@
         }, 3000);
 
         function spawnCar() {
-            if (isPaused || cars.length >= pop * 3 + 5) return;
+            if (isPaused) return;
+            // 車が絶対に来るように、最低でも「5台」は人口に関係なく出るように調整
+            if (cars.length >= Math.max(5, pop * 3)) return;
+
             const dirs = ['right', 'down', 'left', 'up'];
             const dir = dirs[Math.floor(Math.random()*4)];
             const mx = canvas.width/2, my = canvas.height/2;
@@ -84,13 +87,9 @@
             if(dir==='right'){ x=-50; y=my+10; } else if(dir==='down'){ x=mx+10; y=-50; }
             else if(dir==='left'){ x=canvas.width+50; y=my-40; } else { x=mx-40; y=canvas.height+50; }
             
-            cars.push({ 
-                x, y, speed: 2.5 + Math.random(), dir, 
-                passed: false, id: Math.random(),
-                waitTime: 0 // 待ち時間計測用
-            });
+            cars.push({ x, y, speed: 2.5 + Math.random(), dir, passed: false, id: Math.random(), waitTime: 0 });
         }
-        setInterval(spawnCar, 1500);
+        setInterval(spawnCar, 1200);
 
         function update() {
             if (!isPaused) {
@@ -106,14 +105,25 @@
                 ctx.fillRect(0, my-50, canvas.width, 100);
                 ctx.fillRect(mx-50, 0, 100, canvas.height);
 
+                // 信号機の描画 (ダブル信号)
                 if(images.singo.complete) {
                     const sw = images.singo.width / 4, sh = images.singo.height / 2;
                     const col = signalLevel - 1;
-                    ctx.drawImage(images.singo, col*sw, (signalState >= 2 ? 0 : sh), sw, sh, mx-75, my-25, 40, 40);
-                    ctx.drawImage(images.singo, col*sw, (signalState < 2 ? 0 : sh), sw, sh, mx-25, my-75, 40, 40);
+
+                    // 横用信号（縦の道路を制御：左側に配置）
+                    // signalState 0,1で赤、2,3で青（縦が止まるときに横が青）
+                    const hSignalRow = (signalState < 2) ? 0 : 1; 
+                    ctx.drawImage(images.singo, col*sw, hSignalRow*sh, sw, sh, mx-85, my-25, 40, 40);
+
+                    // 縦用信号（横の道路を制御：上側に配置）
+                    // signalState 0,1で青、2,3で赤
+                    const vSignalRow = (signalState < 2) ? 1 : 0; 
+                    ctx.drawImage(images.singo, col*sw, vSignalRow*sh, sw, sh, mx-25, my-85, 40, 40);
                 }
 
-                const vGo = signalState < 2, hGo = signalState >= 2;
+                // 青信号の向き（0,1は縦が青、2,3は横が青）
+                const vGo = signalState < 2;
+                const hGo = signalState >= 2;
 
                 cars.forEach(car => {
                     let canMove = true;
@@ -121,6 +131,7 @@
                     if(front) canMove = false;
 
                     const stopLine = 85;
+                    // 信号判定をより厳密に
                     if(car.dir==='right' && !hGo && car.x > mx-stopLine && car.x < mx-60) canMove = false;
                     if(car.dir==='down' && !vGo && car.y > my-stopLine && car.y < my-60) canMove = false;
                     if(car.dir==='left' && !hGo && car.x < mx+stopLine && car.x > mx+40) canMove = false;
@@ -130,7 +141,6 @@
                         if(car.dir==='right') car.x+=car.speed; else if(car.dir==='down') car.y+=car.speed;
                         else if(car.dir==='left') car.x-=car.speed; else car.y-=car.speed;
                     } else {
-                        // 止まっている間、待ち時間を加算 (60fps想定で1フレーム 1/60秒)
                         car.waitTime += 1/60;
                     }
 
@@ -140,20 +150,11 @@
                     if(images.cars.complete) ctx.drawImage(images.cars, 0, 0, images.cars.width/5, images.cars.height/2, -20, -20, 40, 40);
                     ctx.restore();
 
-                    // 通過判定
                     if (!car.passed && Math.abs(car.x - mx) < 35 && Math.abs(car.y - my) < 35) {
-                        // 収益加算
                         gold += upgradeInfo[signalLevel-1].income;
-                        
-                        // 幸福度判定
-                        if (car.waitTime <= 1.0) {
-                            happy += 0.2;
-                        } else if (car.waitTime >= 3.1) {
-                            happy -= 0.2;
-                        }
-                        // 幸福度が0以下にならないように
-                        happy = Math.max(0, happy);
-                        
+                        if (car.waitTime <= 1.0) happy += 0.2;
+                        else if (car.waitTime >= 3.1) happy -= 0.2;
+                        happy = Math.max(0.1, happy);
                         car.passed = true;
                         updateUI();
                     }
@@ -165,24 +166,23 @@
 
         function updateUI() {
             document.getElementById('goldText').innerText = gold;
-            document.getElementById('happyText').innerText = happy.toFixed(1); // 小数点1桁まで表示
+            document.getElementById('happyText').innerText = happy.toFixed(1);
             document.getElementById('popText').innerText = pop;
-            document.getElementById('sigLvText') ? document.getElementById('sigLvText').innerText = signalLevel : null;
             const info = upgradeInfo[signalLevel - 1];
-            const btn = document.getElementById('upgradeBtn');
             if (info && info.next) {
                 document.getElementById('nextUpgradeText').innerText = `次へ: ${info.next}G`;
-                btn.disabled = gold < info.next;
-            } else if(btn) {
+                document.getElementById('upgradeBtn').disabled = gold < info.next;
+            } else if(document.getElementById('upgradeBtn')) {
                 document.getElementById('nextUpgradeText').innerText = "Max Level";
-                btn.style.display = 'none';
+                document.getElementById('upgradeBtn').style.display = 'none';
             }
         }
 
         canvas.addEventListener('mousedown', (e) => {
             const mx = e.clientX, my = e.clientY;
             const cx = canvas.width/2, cy = canvas.height/2;
-            if (Math.abs(mx-cx)<80 && Math.abs(my-cy)<80) { 
+            // 信号機付近をクリックでアップグレード
+            if (Math.abs(mx-cx)<100 && Math.abs(my-cy)<100) { 
                 document.getElementById('signalPanel').style.display='block'; 
                 isPaused=true;
                 updateUI();
@@ -194,7 +194,7 @@
             if(nextCost && gold >= nextCost) {
                 gold -= nextCost;
                 signalLevel++;
-                happy += 1.0; // 信号強化でも幸福度アップ！
+                happy += 1.0;
                 updateUI();
                 closeAll();
             }
