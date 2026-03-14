@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Road Master City - Pro</title>
+    <title>Road Master - Final Fix</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background: #7ab36a; font-family: sans-serif; }
         #gameContainer { position: relative; width: 100vw; height: 100vh; }
@@ -31,7 +31,7 @@
         </div>
 
         <div id="signalPanel" class="panel">
-            <h3 style="margin-top:0">🚥 信号機設定</h3>
+            <h3 style="margin:0">🚥 信号機</h3>
             <p>Lv: <span id="sigLvText">1</span> / <span id="secVal">5</span>秒</p>
             <button class="btn" onclick="upgradeSignal()">Lv UP! (100G)</button>
             <input type="range" id="secRange" min="3" max="15" value="5" style="width:100%; margin-top:10px;" oninput="updateSec(this.value)">
@@ -39,14 +39,14 @@
         </div>
 
         <div id="buildPanel" class="panel">
-            <h3 id="buildTitle" style="margin-top:0">🏗️ 建設</h3>
+            <h3 id="buildTitle" style="margin:0">🏗️ 建設</h3>
             <p id="buildDesc" style="font-size:12px;"></p>
             <button id="buildBtn" class="btn"></button>
             <button class="btn" style="background:#ccc" onclick="closeAll()">キャンセル</button>
         </div>
 
         <div id="adFrame">
-            <h2 style="color:red">🚨 緊急出動ミッション</h2>
+            <h2 style="color:red">🚨 緊急出動中！</h2>
             <button class="btn" style="width:200px" onclick="closeAd()">× 閉じて10G獲得</button>
         </div>
     </div>
@@ -65,10 +65,10 @@
         function initSlots() {
             const mx = canvas.width/2, my = canvas.height/2;
             slots = [
-                { x: mx-150, y: my-150, type: 'house', lv: 0, subType: 0 },
-                { x: mx+60,  y: my-150, type: 'shop',  lv: 0, subType: 1 },
-                { x: mx-150, y: my+60,  type: 'shop',  lv: 0, subType: 0 },
-                { x: mx+60,  y: my+60,  type: 'house', lv: 0, subType: 1 }
+                { x: mx-155, y: my-155, type: 'house', lv: 0, subType: 0 },
+                { x: mx+65,  y: my-155, type: 'shop',  lv: 0, subType: 1 },
+                { x: mx-155, y: my+65,  type: 'shop',  lv: 0, subType: 0 },
+                { x: mx+65,  y: my+65,  type: 'house', lv: 0, subType: 1 }
             ];
         }
 
@@ -92,22 +92,20 @@
 
         canvas.addEventListener('mousedown', (e) => {
             const rect = canvas.getBoundingClientRect();
-            const mx = e.clientX - rect.left;
-            const my = e.clientY - rect.top;
+            const mx = (e.clientX || e.touches[0].clientX) - rect.left;
+            const my = (e.clientY || e.touches[0].clientY) - rect.top;
             const cx = canvas.width/2, cy = canvas.height/2;
 
             const emCar = cars.find(c => c.isEmergency && Math.abs(c.x-mx)<40 && Math.abs(c.y-my)<40);
             if(emCar) { isPaused = true; document.getElementById('adFrame').style.display='flex'; cars=cars.filter(c=>c!==emCar); return; }
-
             if (Math.abs(mx - cx) < 60 && Math.abs(my - cy) < 60) { document.getElementById('signalPanel').style.display='block'; isPaused=true; return; }
-
             const slot = slots.find(s => mx > s.x && mx < s.x+90 && my > s.y && my < s.y+90);
             if(slot) {
                 const panel = document.getElementById('buildPanel');
                 const cost = (slot.lv + 1) * 50;
                 panel.style.display = 'block';
-                document.getElementById('buildTitle').innerText = slot.type==='house' ? "住宅" : "お店";
-                document.getElementById('buildDesc').innerText = `Lv.${slot.lv}→${slot.lv+1} (費用:${cost}G)`;
+                document.getElementById('buildTitle').innerText = slot.type==='house' ? "住宅地" : "お店";
+                document.getElementById('buildDesc').innerText = `Lv.${slot.lv} → ${slot.lv+1}\n費用: ${cost}G`;
                 document.getElementById('buildBtn').onclick = () => { if(gold>=cost && slot.lv<3){ gold-=cost; slot.lv++; closeAll(); updateUI(); }};
                 isPaused = true;
             }
@@ -128,18 +126,18 @@
             else if(dir==='left'){ x=canvas.width+80; y=my-45; } else { x=mx-45; y=canvas.height+80; }
             const isEm = Math.random() < 0.2;
             const car = { x, y, speed: isEm?4.5:2.5, dir, carIdx: isEm?2:Math.floor(Math.random()*2), isEmergency: isEm, passed: false };
-            if (!cars.some(o => Math.abs(o.x - car.x) < 85 && Math.abs(o.y - car.y) < 85)) cars.push(car);
+            if (!cars.some(o => Math.abs(o.x - car.x) < 90 && Math.abs(o.y - car.y) < 90)) cars.push(car);
         }
-        setInterval(spawnCar, 1500);
+        setInterval(spawnCar, 1200);
 
         function drawBuilding(s) {
             if(s.lv === 0) { ctx.fillStyle='rgba(0,0,0,0.05)'; ctx.fillRect(s.x, s.y, 90, 90); return; }
             const img = s.type === 'house' ? images.house : images.tatemono;
             if(!img.complete) return;
-            // 切り出し座標の精密修正
+            // 余白をさらに大きくカット（18%）して文字を完全に消す
             const uw = img.width/3, uh = img.height/3;
-            const border = uw * 0.15; 
-            ctx.drawImage(img, s.subType*uw+border, (s.lv-1)*uh+border, uw-border*2, uh-border*2, s.x, s.y, 90, 90);
+            const cut = uw * 0.18; 
+            ctx.drawImage(img, s.subType*uw+cut, (s.lv-1)*uh+cut, uw-cut*2, uh-cut*2, s.x, s.y, 90, 90);
         }
 
         function update() {
@@ -155,10 +153,11 @@
 
                 cars.forEach(car => {
                     let move = true;
-                    // 前方の車チェック
-                    const front = cars.find(o => o!==car && ((car.dir==='right'&&o.x>car.x&&o.x<car.x+70&&Math.abs(o.y-car.y)<10)||(car.dir==='down'&&o.y>car.y&&o.y<car.y+70&&Math.abs(o.x-car.x)<10)||(car.dir==='left'&&o.x<car.x&&o.x>car.x-70&&Math.abs(o.y-car.y)<10)||(car.dir==='up'&&o.y<car.y&&o.y>car.y-70&&Math.abs(o.x-car.x)<10)));
+                    // 車間距離
+                    const front = cars.find(o => o!==car && ((car.dir==='right'&&o.x>car.x&&o.x<car.x+75&&Math.abs(o.y-car.y)<10)||(car.dir==='down'&&o.y>car.y&&o.y<car.y+75&&Math.abs(o.x-car.x)<10)||(car.dir==='left'&&o.x<car.x&&o.x>car.x-75&&Math.abs(o.y-car.y)<10)||(car.dir==='up'&&o.y<car.y&&o.y>car.y-75&&Math.abs(o.x-car.x)<10)));
                     if(front) move = false;
 
+                    // 信号（緊急車両は無視）
                     if (!car.isEmergency) {
                         const atLight = (car.dir==='right'&&hRed&&car.x>mx-95&&car.x<mx-75)||(car.dir==='down'&&vRed&&car.y>my-95&&car.y<my-75)||(car.dir==='left'&&hRed&&car.x<mx+55&&car.x>mx+35)||(car.dir==='up'&&vRed&&car.y<my+55&&car.y>my+35);
                         if(atLight) move = false;
@@ -169,15 +168,21 @@
                         else if(car.dir==='left') car.x-=car.speed; else car.y-=car.speed;
                     }
 
+                    // 車の描画（1段目の直進画像のみを使用）
                     ctx.save();
                     ctx.translate(car.x+22, car.y+22);
                     if(car.dir==='right') ctx.rotate(Math.PI/2); else if(car.dir==='down') ctx.rotate(Math.PI); else if(car.dir==='left') ctx.rotate(-Math.PI/2);
-                    if(images.cars.complete) ctx.drawImage(images.cars, car.carIdx*(images.cars.width/5), 0, images.cars.width/5, images.cars.height/2, -20, -20, 40, 40);
+                    if(images.cars.complete) {
+                        // 1段目 (y=0) から 5分割された画像のうち1つを切り出す
+                        ctx.drawImage(images.cars, car.carIdx*(images.cars.width/5), 0, images.cars.width/5, images.cars.height/2, -20, -20, 40, 40);
+                    }
                     ctx.restore();
 
-                    // 収益判定（判定範囲を35pxに拡大）
-                    if (!car.passed && Math.abs(car.x-mx)<35 && Math.abs(car.y-my)<35) {
-                        gold += signalLevel; car.passed = true; updateUI();
+                    // 収益判定（交差点付近で1回だけ）
+                    if (!car.passed && Math.abs(car.x-mx)<45 && Math.abs(car.y-my)<45) {
+                        gold += signalLevel; 
+                        car.passed = true; 
+                        updateUI();
                     }
                 });
                 cars = cars.filter(c => c.x>-150 && c.x<canvas.width+150 && c.y>-150 && c.y<canvas.height+150);
