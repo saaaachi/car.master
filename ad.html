@@ -2,248 +2,63 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Road Master - City Fix</title>
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; background: #7ab36a; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
-        #adSpace { height: 50px; background: #ddd; border-bottom: 2px solid #ccc; z-index: 5; }
-        #gameContainer { position: relative; flex-grow: 1; overflow: hidden; }
-        canvas { display: block; width: 100%; height: 100%; }
-        
-        /* 上部ステータス */
-        .status-bar { 
-            position: absolute; top: 10px; left: 10px; right: 10px; 
-            display: flex; justify-content: space-between; 
-            background: rgba(0,0,0,0.7); color: #fff; padding: 10px 20px; border-radius: 30px; font-size: 14px; z-index: 10; pointer-events: none;
+        body { 
+            margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            height: 100vh; background: radial-gradient(circle, #222, #000); font-family: sans-serif; color: #fff; overflow: hidden;
         }
-
-        /* 設定パネル共通 */
-        .panel { 
-            display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: #fff; border: 4px solid #333; padding: 20px; border-radius: 20px; z-index: 2000; width: 240px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        .siren {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(90deg, rgba(255,0,0,0.15), rgba(0,0,255,0.15));
+            animation: flash 0.4s infinite alternate; z-index: -1;
         }
-        .panel h3 { margin: 0 0 10px 0; font-size: 18px; text-align: center; }
-        .panel-close { position: absolute; top: 5px; right: 15px; cursor: pointer; font-size: 24px; font-weight: bold; }
-        .btn { width: 100%; padding: 12px; background: #ffcc00; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .btn:disabled { background: #ccc; }
-
-        #adFrame { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; background: #fff; z-index: 3000; }
+        @keyframes flash { from { opacity: 0.2; } to { opacity: 0.7; } }
+        #timerContent { text-align: center; }
+        .bar-bg { width: 220px; height: 10px; background: #333; border-radius: 5px; margin: 20px auto; overflow: hidden; border: 1px solid #444; }
+        .bar-fill { width: 0%; height: 100%; background: #ff3333; transition: width 1s linear; }
+        h2 { font-size: 28px; margin: 0; color: #ffcc00; text-shadow: 0 0 15px rgba(255,204,0,0.5); }
+        p { font-size: 14px; color: #aaa; margin-top: 10px; }
+        #closeBtn { 
+            display: none; padding: 18px 45px; background: #ffcc00; color: #000; 
+            border: none; border-radius: 50px; font-size: 20px; font-weight: bold;
+            cursor: pointer; box-shadow: 0 0 25px rgba(255, 204, 0, 0.4);
+            animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes pop { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     </style>
 </head>
 <body>
-    <div id="adSpace"><iframe src="up.ad.html" style="width: 100%; height: 50px; border: none;" scrolling="no"></iframe></div>
-    
-    <div id="gameContainer">
-        <canvas id="gameCanvas"></canvas>
-        <div class="status-bar">
-            <div>💰 <span id="goldText">0</span></div>
-            <div>👥 <span id="popText">0</span></div>
-            <div>😊 <span id="happyText">100</span></div>
-        </div>
+    <div class="siren"></div>
+    <div id="timerContent">
+        <h2>EMERGENCY!</h2>
+        <p>緊急車両が通過するのを待っています</p>
+        <div class="bar-bg"><div class="bar-fill" id="bar"></div></div>
+        <div style="font-size: 20px;"><span id="sec">5</span>s</div>
+    </div>
 
-        <div id="signalPanel" class="panel">
-            <div class="panel-close" onclick="closeAllPanels()">×</div>
-            <h3>🚥 信号機設定</h3>
-            <p style="font-size:12px;">現在のLv: <span id="sigLvText">1</span></p>
-            <button id="sigUpgBtn" class="btn" onclick="upgradeSignal()">信号Lv UP! (100G)</button>
-            <hr>
-            <label style="font-size:12px;">切り替え間隔: <span id="secVal">5</span>秒</label>
-            <input type="range" id="secRange" min="3" max="15" value="5" style="width:100%" oninput="updateSec(this.value)">
-        </div>
+    <button id="closeBtn" onclick="window.parent.postMessage('adFinished', '*')">10G を受け取って再開</button>
 
-        <div id="buildPanel" class="panel">
-            <div class="panel-close" onclick="closeAllPanels()">×</div>
-            <h3 id="buildTitle">🏗️ 建設</h3>
-            <p id="buildDesc" style="font-size:12px;"></p>
-            <button id="buildBtn" class="btn"></button>
+    <div style="margin-top: 35px; background: #fff; padding: 4px; border-radius: 4px;">
+        <div id="im-1b37e3d6b44c4309936ced973c4edc1a">
+            <script async src="https://imp-adedge.i-mobile.co.jp/script/v1/spot.js?20220104"></script>
+            <script>(window.adsbyimobile=window.adsbyimobile||[]).push({pid:84561,mid:590804,asid:1925759,type:"banner",display:"inline",elementid:"im-1b37e3d6b44c4309936ced973c4edc1a"})</script>
         </div>
-
-        <iframe id="adFrame" src="ad.html"></iframe>
     </div>
 
     <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        let gold = 100, signalLevel = 1, signalState = 0, isPaused = false;
-        let happiness = 100, population = 0, autoChangeTime = 5, lastChangeTime = Date.now();
-
-        const images = {};
-        const assets = { cars: 'images/car.png', house: 'images/house.png', tatemono: 'images/tatemono.png' };
-        for (let key in assets) { images[key] = new Image(); images[key].src = assets[key]; }
-
-        let slots = [];
-        function initSlots() {
-            const mx = canvas.width/2, my = canvas.height/2;
-            slots = [
-                { x: mx-160, y: my-160, type: 'house', lv: 0, subType: 0 }, // 左上(アパート)
-                { x: mx+70,  y: my-160, type: 'shop',  lv: 0, subType: 1 }, // 右上(バーガー)
-                { x: mx-160, y: my+70,  type: 'shop',  lv: 0, subType: 0 }, // 左下(コンビニ)
-                { x: mx+70,  y: my+70,  type: 'house', lv: 0, subType: 1 }  // 右下(一軒家)
-            ];
-        }
-
-        function resizeCanvas() { 
-            canvas.width = window.innerWidth; canvas.height = window.innerHeight - 50;
-            initSlots();
-        }
-        window.addEventListener('resize', resizeCanvas); resizeCanvas();
-
-        let cars = [];
-        let selectedSlot = null;
-
-        function updateUI() {
-            document.getElementById('goldText').innerText = gold;
-            document.getElementById('popText').innerText = population;
-            document.getElementById('happyText').innerText = Math.floor(happiness);
-            document.getElementById('sigLvText').innerText = signalLevel;
-            document.getElementById('sigUpgBtn').disabled = gold < 100;
-            
-            // 人口と幸福度の計算
-            let p = 0;
-            slots.forEach(s => { if(s.lv > 0 && s.type === 'house') p += s.lv * 20; });
-            population = p;
-        }
-
-        canvas.addEventListener('mousedown', (e) => {
-            if(isPaused) return;
-            const rect = canvas.getBoundingClientRect();
-            const mx = (e.clientX - rect.left) * (canvas.width/rect.width);
-            const my = (e.clientY - rect.top) * (canvas.height/rect.height);
-            const cx = canvas.width/2, cy = canvas.height/2;
-
-            // 中央（信号）クリック
-            if (Math.abs(mx - cx) < 60 && Math.abs(my - cy) < 60) {
-                document.getElementById('signalPanel').style.display = 'block';
-                isPaused = true;
-                return;
+        let time = 5;
+        const btn = document.getElementById('closeBtn');
+        const bar = document.getElementById('bar');
+        const interval = setInterval(() => {
+            time--;
+            document.getElementById('sec').innerText = time;
+            bar.style.width = ((5 - time) / 5 * 100) + "%";
+            if (time <= 0) {
+                clearInterval(interval);
+                document.getElementById('timerContent').style.display = 'none';
+                btn.style.display = 'block';
             }
-
-            // 四隅（建物）クリック
-            selectedSlot = slots.find(s => mx > s.x && mx < s.x+90 && my > s.y && my < s.y+90);
-            if(selectedSlot) {
-                showBuildPanel(selectedSlot);
-                isPaused = true;
-            }
-        });
-
-        function showBuildPanel(slot) {
-            const panel = document.getElementById('buildPanel');
-            const btn = document.getElementById('buildBtn');
-            const cost = (slot.lv + 1) * 50;
-            panel.style.display = 'block';
-            document.getElementById('buildTitle').innerText = slot.type === 'house' ? "住宅地" : "商業施設";
-            document.getElementById('buildDesc').innerText = `Lv.${slot.lv} → Lv.${slot.lv+1}\n必要費用: ${cost}G`;
-            btn.innerText = slot.lv === 0 ? "建設する" : "アップグレード";
-            btn.onclick = () => {
-                if(gold >= cost && slot.lv < 3) {
-                    gold -= cost; slot.lv++; closeAllPanels(); updateUI();
-                }
-            };
-            btn.disabled = gold < cost || slot.lv >= 3;
-        }
-
-        function upgradeSignal() {
-            if(gold >= 100) { gold -= 100; signalLevel++; updateUI(); }
-        }
-
-        function updateSec(v) { autoChangeTime = v; document.getElementById('secVal').innerText = v; }
-        function closeAllPanels() { 
-            document.querySelectorAll('.panel').forEach(p => p.style.display = 'none');
-            isPaused = false; 
-        }
-
-        function spawnCar() {
-            if (isPaused) return;
-            // 最低でも3秒に1回、人口が増えると最大0.5秒に1回
-            const interval = Math.max(500, 3000 - (population * 15));
-            const dirs = ['right', 'down', 'left', 'up'];
-            const dir = dirs[Math.floor(Math.random()*4)];
-            const mx = canvas.width/2, my = canvas.height/2;
-            let x, y;
-            if(dir==='right'){ x=-50; y=my+5; } else if(dir==='down'){ x=mx+5; y=-50; }
-            else if(dir==='left'){ x=canvas.width+50; y=my-45; } else { x=mx-45; y=canvas.height+50; }
-            
-            const car = { x, y, speed: 2.5, dir, carIdx: Math.floor(Math.random()*5), waitTime: 0, passed: false };
-            if (!cars.some(o => Math.abs(o.x - car.x) < 80 && Math.abs(o.y - car.y) < 80)) cars.push(car);
-            setTimeout(spawnCar, interval);
-        }
-        setTimeout(spawnCar, 1000);
-
-        function drawBuilding(s) {
-            if(s.lv === 0) {
-                ctx.fillStyle = 'rgba(0,0,0,0.1)';
-                ctx.fillRect(s.x, s.y, 90, 90);
-                return;
-            }
-            const img = s.type === 'house' ? images.house : images.tatemono;
-            if(!img.complete) return;
-            
-            // ★文字が入らないように中央を精密に切り出し (1024x1024画像を想定)
-            const unitW = img.width / 3;
-            const unitH = img.height / 3;
-            const padding = unitW * 0.15; // 周辺の文字をカット
-            const sx = s.subType * unitW + padding;
-            const sy = (s.lv - 1) * unitH + padding;
-            const sSize = unitW - (padding * 2);
-            
-            ctx.drawImage(img, sx, sy, sSize, sSize, s.x, s.y, 90, 90);
-        }
-
-        function update() {
-            if (!isPaused) {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                const mx = canvas.width/2, my = canvas.height/2;
-
-                if (Date.now() - lastChangeTime > autoChangeTime * 1000) {
-                    signalState = (signalState + 1) % 4;
-                    lastChangeTime = Date.now();
-                }
-
-                // 道路
-                ctx.fillStyle = '#444'; 
-                ctx.fillRect(0, my-50, canvas.width, 100); 
-                ctx.fillRect(mx-50, 0, 100, canvas.height);
-                
-                slots.forEach(drawBuilding);
-
-                let hRed = signalState >= 2, vRed = signalState <= 1;
-
-                cars.forEach((car, i) => {
-                    let canMove = true;
-                    const atLight = (car.dir==='right' && hRed && car.x>mx-95 && car.x<mx-75) ||
-                                   (car.dir==='down' && vRed && car.y>my-95 && car.y<my-75) ||
-                                   (car.dir==='left' && hRed && car.x<mx+55 && car.x>mx+35) ||
-                                   (car.dir==='up' && vRed && car.y<my+55 && car.y>my+35);
-                    
-                    if (atLight) { canMove = false; car.waitTime++; }
-                    
-                    if (canMove) {
-                        if (car.waitTime > 0 && !car.passed) {
-                            if (car.waitTime < 100) happiness += 0.05;
-                            else if (car.waitTime > 400) happiness -= 0.1;
-                        }
-                        if (car.dir==='right') car.x+=car.speed; else if (car.dir==='down') car.y+=car.speed;
-                        else if (car.dir==='left') car.x-=car.speed; else car.y-=car.speed;
-                    }
-
-                    ctx.save();
-                    ctx.translate(car.x+22, car.y+22);
-                    if (car.dir==='right') ctx.rotate(Math.PI/2); else if (car.dir==='down') ctx.rotate(Math.PI); else if (car.dir==='left') ctx.rotate(-Math.PI/2);
-                    if (images.cars.complete) {
-                        // 1段目の画像のみを精密に使用
-                        ctx.drawImage(images.cars, car.carIdx*(images.cars.width/5), 0, images.cars.width/5, images.cars.height/2, -20, -20, 40, 40);
-                    }
-                    ctx.restore();
-
-                    if (!car.passed && (Math.abs(car.x-mx)<20 && Math.abs(car.y-my)<20)) {
-                        gold += signalLevel; car.passed = true; updateUI();
-                    }
-                });
-                cars = cars.filter(c => c.x>-100 && c.x<canvas.width+100 && c.y>-100 && c.y<canvas.height+100);
-            }
-            requestAnimationFrame(update);
-        }
-        updateUI(); update();
+        }, 1000);
     </script>
 </body>
 </html>
