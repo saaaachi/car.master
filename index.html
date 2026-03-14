@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Road Master - City Flow</title>
+    <title>Road Master - Population Drive</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background: #7ab36a; font-family: sans-serif; }
         #gameContainer { position: relative; width: 100vw; height: 100vh; }
@@ -64,68 +64,82 @@
         function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
         window.addEventListener('resize', resize); resize();
 
-        // 人口増減と車の入場・退場システム
-        setInterval(() => {
-            let targetPop = Math.max(1, Math.floor(happy));
-            if (pop < targetPop) {
-                pop++;
-                spawnCar('right_in'); // 右から入場
-            } else if (pop > targetPop && cars.length > 0) {
-                pop--;
-                // 街にいる一台を「退場モード」にする
-                let luckyCar = cars.find(c => !c.isLeaving);
-                if(luckyCar) luckyCar.isLeaving = true;
-            }
-            updateUI();
-        }, 2000);
-
-        function spawnCar(type = 'random') {
-            const mx = canvas.width/2, my = canvas.height/2;
-            let dir, x, y;
-
-            if (type === 'right_in') {
-                dir = 'left'; x = canvas.width + 50; y = my - 40;
-            } else {
-                const dirs = ['right', 'down', 'left', 'up'];
-                dir = dirs[Math.floor(Math.random()*4)];
-                if(dir==='right'){ x=-50; y=my+10; } 
-                else if(dir==='down'){ x=mx+10; y=-50; }
-                else if(dir==='left'){ x=canvas.width+50; y=my-40; } 
-                else { x=mx-40; y=canvas.height+50; }
-            }
-            cars.push({ x, y, speed: 2 + Math.random(), dir, passed: false, id: Math.random(), waitTime: 0, isLeaving: false });
+        // 目標とする車の台数を計算する関数
+        function getTargetCarCount() {
+            let count = pop * 0.4;
+            if (count <= 0.9) return 1; // 0.9台以下は1台に切り上げ
+            return Math.floor(count);    // 1台以上は小数点切り捨て
         }
 
-        // 初期車両の確保
-        for(let i=0; i<3; i++) spawnCar();
+        function spawnCar(fromEdge = false) {
+            const mx = canvas.width/2, my = canvas.height/2;
+            const dirs = ['right', 'down', 'left', 'up'];
+            const dir = dirs[Math.floor(Math.random()*4)];
+            let x, y;
+
+            if(dir==='right'){ x=-50; y=my+10; } 
+            else if(dir==='down'){ x=mx+10; y=-50; }
+            else if(dir==='left'){ x=canvas.width+50; y=my-40; } 
+            else { x=mx-40; y=canvas.height+50; }
+
+            cars.push({ x, y, speed: 2 + Math.random(), dir, passed: false, id: Math.random(), waitTime: 0 });
+        }
+
+        // 人口・幸福度・車両台数の管理（1秒ごとに更新）
+        setInterval(() => {
+            if (isPaused) return;
+
+            // 幸福度に合わせて人口を増減
+            let targetPop = Math.max(1, Math.floor(happy));
+            if (pop < targetPop) pop++;
+            else if (pop > targetPop) pop--;
+
+            // 計算した台数になるよう車を補充
+            const targetCarCount = getTargetCarCount();
+            if (cars.length < targetCarCount) {
+                spawnCar();
+            }
+            updateUI();
+        }, 1000);
 
         function update() {
             if (!isPaused) {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 const mx = canvas.width/2, my = canvas.height/2;
 
+                // 信号切り替え
                 if (Date.now() - lastChangeTime > autoChangeTime * 1000) {
                     signalState = (signalState + 1) % 4;
                     lastChangeTime = Date.now();
                 }
 
+                // 道路
                 ctx.fillStyle = '#444';
                 ctx.fillRect(0, my-50, canvas.width, 100);
                 ctx.fillRect(mx-50, 0, 100, canvas.height);
 
+                // 信号機の描画（ダブル信号）
                 if(images.singo.complete) {
                     const sw = images.singo.width/4, sh = images.singo.height/2;
                     const col = signalLevel - 1;
+                    // 横方向の車を制御（左）
                     ctx.drawImage(images.singo, col*sw, (signalState<2?0:sh), sw, sh, mx-85, my-25, 40, 40);
+                    // 縦方向の車を制御（上）
                     ctx.drawImage(images.singo, col*sw, (signalState<2?sh:0), sw, sh, mx-25, my-85, 40, 40);
                 }
 
                 const vGo = signalState < 2, hGo = signalState >= 2;
 
-                cars.forEach((car, index) => {
+                cars.forEach((car) => {
                     let canMove = true;
                     const front = cars.find(o => o.id !== car.id && Math.abs(o.x - car.x) < 45 && Math.abs(o.y - car.y) < 45);
-                    if(front) canMove = false;
+                    if(front) {
+                        // 前に車がいれば止まる
+                        if(car.dir==='right' && front.x > car.x) canMove = false;
+                        if(car.dir==='down' && front.y > car.y) canMove = false;
+                        if(car.dir==='left' && front.x < car.x) canMove = false;
+                        if(car.dir==='up' && front.y < car.y) canMove = false;
+                    }
 
                     const stopLine = 85;
                     if(car.dir==='right' && !hGo && car.x > mx-stopLine && car.x < mx-60) canMove = false;
@@ -133,13 +147,9 @@
                     if(car.dir==='left' && !hGo && car.x < mx+stopLine && car.x > mx+40) canMove = false;
                     if(car.dir==='up' && !vGo && car.y < my+stopLine && car.y > my+40) canMove = false;
 
-                    // 退場モードの車は信号を無視して右へ消えていく（調整用）
-                    if (car.isLeaving) { canMove = true; car.dir = 'right'; }
-
                     if(canMove) {
                         if(car.dir==='right') car.x+=car.speed; else if(car.dir==='down') car.y+=car.speed;
                         else if(car.dir==='left') car.x-=car.speed; else car.y-=car.speed;
-                        car.waitTime = 0;
                     } else {
                         car.waitTime += 1/60;
                     }
@@ -150,25 +160,19 @@
                     if(images.cars.complete) ctx.drawImage(images.cars, 0, 0, images.cars.width/5, images.cars.height/2, -20, -20, 40, 40);
                     ctx.restore();
 
+                    // 通過判定
                     if (!car.passed && Math.abs(car.x - mx) < 35 && Math.abs(car.y - my) < 35) {
                         gold += upgradeInfo[signalLevel-1].income;
-                        if (car.waitTime <= 1.0) happy += 0.1;
-                        else if (car.waitTime >= 3.0) happy -= 0.1;
+                        if (car.waitTime <= 1.0) happy += 0.2;
+                        else if (car.waitTime >= 3.1) happy -= 0.2;
                         happy = Math.max(0.1, happy);
                         car.passed = true;
                         updateUI();
                     }
                 });
                 
-                // 画面外に出た車を削除（かつ、必要なら新しい車を反対から出すことで「うろうろ」を表現）
-                cars = cars.filter(c => {
-                    const isOut = (c.x < -100 || c.x > canvas.width+100 || c.y < -100 || c.y > canvas.height+100);
-                    if (isOut && !c.isLeaving) {
-                        // 退場中じゃない車が端まで行ったら、反対側から出し直して「ループ」させる
-                        setTimeout(() => spawnCar(), 100);
-                    }
-                    return !isOut;
-                });
+                // 画面外に出た車を削除（補充はsetIntervalで行う）
+                cars = cars.filter(c => (c.x > -100 && c.x < canvas.width+100 && c.y > -100 && c.y < canvas.height+100));
             }
             requestAnimationFrame(update);
         }
