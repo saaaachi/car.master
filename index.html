@@ -3,51 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Road Master - Reliable Flow</title>
+    <title>Road Master - Final Fix</title>
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; background: #7ab36a; font-family: sans-serif; }
-        canvas { display: block; }
+        /* 画面全体のレイアウト */
+        body { margin: 0; padding: 0; overflow: hidden; background: #7ab36a; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
+        
+        /* 広告エリアを最上部に固定 */
+        #adArea { width: 100%; height: 60px; background: #eee; flex-shrink: 0; z-index: 1000; border-bottom: 2px solid #ccc; }
+        
+        /* ゲーム画面 */
+        #gameContainer { position: relative; flex-grow: 1; width: 100%; overflow: hidden; }
+        canvas { display: block; width: 100%; height: 100%; }
         
         /* UIを左上にコンパクトに配置 */
         .status-panel { 
             position: absolute; top: 10px; left: 10px; 
-            background: rgba(0, 0, 0, 0.7); color: #fff; 
-            padding: 8px 15px; border-radius: 15px; 
-            font-size: 14px; z-index: 100;
-            display: flex; flex-direction: column; gap: 4px;
-            pointer-events: none; /* 下のキャンバス操作を邪魔しない */
+            background: rgba(0, 0, 0, 0.6); color: #fff; 
+            padding: 6px 12px; border-radius: 12px; 
+            font-size: 13px; z-index: 100;
+            display: flex; flex-direction: column; gap: 2px;
+            pointer-events: none;
         }
-        .status-item { display: flex; align-items: center; gap: 8px; }
 
         .panel { 
             display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: #fff; border: 3px solid #333; padding: 20px; border-radius: 20px; z-index: 2000; width: 250px; text-align: center;
+            background: #fff; border: 3px solid #333; padding: 20px; border-radius: 20px; z-index: 2000; width: 240px; text-align: center;
         }
-        .input-group { margin: 12px 0; text-align: left; }
-        .input-group label { display: block; font-size: 12px; color: #666; }
-        input[type="range"] { width: 100%; }
         .btn { width: 100%; padding: 12px; background: #ffcc00; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 8px; }
     </style>
 </head>
 <body>
-    <div class="status-panel">
-        <div class="status-item">💰 <span id="goldText">50</span></div>
-        <div class="status-item">👫 <span id="popText">1</span></div>
-        <div class="status-item">💛 <span id="happyText">1.0</span></div>
+    <div id="adArea">
+        <iframe src="up.ad.html" width="100%" height="60" frameborder="0" scrolling="no"></iframe>
     </div>
 
-    <div id="signalPanel" class="panel">
-        <h3 style="margin:0 0 10px 0">🚦 信号設定</h3>
-        <p id="levelText" style="font-size:14px; margin:5px 0;">レベル: 1</p>
-        <div class="input-group">
-            <label>青信号: <span id="secDisplay">5</span>秒</label>
-            <input type="range" id="secInput" min="2" max="15" value="5" oninput="updateSecText()">
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div class="status-panel">
+            <div>💰 <span id="goldText">50</span></div>
+            <div>👫 <span id="popText">1</span></div>
+            <div>💛 <span id="happyText">1.0</span></div>
         </div>
-        <button id="upgradeBtn" class="btn" onclick="upgradeSignal()">アップグレード</button>
-        <button class="btn" style="background:#eee" onclick="closeAll()">閉じる</button>
-    </div>
 
-    <canvas id="gameCanvas"></canvas>
+        <div id="signalPanel" class="panel">
+            <h3 style="margin:0 0 10px 0">🚦 信号設定</h3>
+            <div style="text-align:left; font-size:12px;">
+                <label>青信号: <span id="secDisplay">5</span>秒</label>
+                <input type="range" id="secInput" min="2" max="15" value="5" style="width:100%" oninput="updateSecText()">
+            </div>
+            <button id="upgradeBtn" class="btn" onclick="upgradeSignal()">強化</button>
+            <button class="btn" style="background:#eee" onclick="closeAll()">閉じる</button>
+        </div>
+    </div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -64,38 +72,34 @@
         const upgradeCosts = [30, 50, 100, 200];
         let cars = [];
 
-        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-        window.addEventListener('resize', resize); resize();
-
-        function getTargetCount() {
-            let c = pop * 0.4;
-            return (c <= 0.9) ? 1 : Math.floor(c);
+        function resize() { 
+            canvas.width = canvas.parentElement.clientWidth; 
+            canvas.height = canvas.parentElement.clientHeight; 
         }
+        window.addEventListener('resize', resize); resize();
 
         function spawnCar() {
             const mx = canvas.width/2, my = canvas.height/2;
             const dirs = ['right', 'down', 'left', 'up'];
             const dir = dirs[Math.floor(Math.random()*4)];
             let x, y;
-            if(dir==='right'){ x=-60; y=my+10; } 
-            else if(dir==='down'){ x=mx+10; y=-60; }
-            else if(dir==='left'){ x=canvas.width+60; y=my-40; } 
-            else { x=mx-40; y=canvas.height+60; }
+            // 出現位置を少し「内側」にして即座に消えるのを防止
+            if(dir==='right'){ x=-40; y=my+10; } 
+            else if(dir==='down'){ x=mx+10; y=-40; }
+            else if(dir==='left'){ x=canvas.width+40; y=my-40; } 
+            else { x=mx-40; y=canvas.height+40; }
             
             cars.push({ x, y, speed: 2 + Math.random(), dir, passed: false, id: Math.random(), waitTime: 0 });
         }
 
-        // 強力な補充ロジック
         setInterval(() => {
             if (isPaused) return;
-            // 幸福度による人口増減
             let tp = Math.max(1, Math.floor(happy));
             if (pop < tp) pop++; else if (pop > tp) pop--;
 
-            // 台数チェック（足りなければ即座に出す）
-            while (cars.length < getTargetCount()) {
-                spawnCar();
-            }
+            let targetCount = (pop * 0.4 <= 0.9) ? 1 : Math.floor(pop * 0.4);
+            // 車が絶対に1台はいるように
+            if (cars.length < targetCount) spawnCar();
             updateUI();
         }, 1000);
 
@@ -126,13 +130,9 @@
 
                 cars.forEach(car => {
                     let canMove = true;
-                    const front = cars.find(o => o.id !== car.id && Math.abs(o.x - car.x) < 50 && Math.abs(o.y - car.y) < 50);
-                    if(front) {
-                        if(car.dir==='right' && front.x > car.x) canMove = false;
-                        if(car.dir==='down' && front.y > car.y) canMove = false;
-                        if(car.dir==='left' && front.x < car.x) canMove = false;
-                        if(car.dir==='up' && front.y < car.y) canMove = false;
-                    }
+                    // 車間距離チェック
+                    const front = cars.find(o => o.id !== car.id && Math.abs(o.x - car.x) < 45 && Math.abs(o.y - car.y) < 45);
+                    if(front) canMove = false;
 
                     const stopLine = 85;
                     if(car.dir==='right' && !hGo && car.x > mx-stopLine && car.x < mx-60) canMove = false;
@@ -143,9 +143,7 @@
                     if(canMove) {
                         if(car.dir==='right') car.x+=car.speed; else if(car.dir==='down') car.y+=car.speed;
                         else if(car.dir==='left') car.x-=car.speed; else car.y-=car.speed;
-                    } else {
-                        car.waitTime += 1/60;
-                    }
+                    } else { car.waitTime += 1/60; }
 
                     ctx.save();
                     ctx.translate(car.x+20, car.y+20);
@@ -162,8 +160,8 @@
                     }
                 });
                 
-                // 画面外に出た車を削除（即座に補充フラグが立つ）
-                cars = cars.filter(c => (c.x > -100 && c.x < canvas.width+100 && c.y > -100 && c.y < canvas.height+100));
+                // 削除判定を広め（-100〜+100）にして、出現と同時に消えるのを防止
+                cars = cars.filter(c => (c.x > -150 && c.x < canvas.width+150 && c.y > -150 && c.y < canvas.height+150));
             }
             requestAnimationFrame(update);
         }
@@ -177,20 +175,16 @@
             document.getElementById('goldText').innerText = gold;
             document.getElementById('happyText').innerText = happy.toFixed(1);
             document.getElementById('popText').innerText = pop;
-            document.getElementById('levelText').innerText = `レベル: ${signalLevel}`;
             const cost = upgradeCosts[signalLevel-1];
             const btn = document.getElementById('upgradeBtn');
-            if(cost) {
-                btn.innerText = `強化 (${cost}G)`;
-                btn.disabled = gold < cost;
-            } else {
-                btn.innerText = "Max Level";
-                btn.disabled = true;
-            }
+            if(cost) { btn.innerText = `強化 (${cost}G)`; btn.disabled = gold < cost; }
+            else { btn.innerText = "Max"; btn.disabled = true; }
         }
 
         canvas.addEventListener('mousedown', (e) => {
-            const mx = e.clientX, my = e.clientY;
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
             const cx = canvas.width/2, cy = canvas.height/2;
             if (Math.abs(mx-cx)<100 && Math.abs(my-cy)<100) { 
                 document.getElementById('signalPanel').style.display='block'; 
