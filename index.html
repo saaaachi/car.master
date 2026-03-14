@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Road Master - Full Edition</title>
+    <title>Road Master - Traffic Update</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background: #eee; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
         #adSpace { height: 50px; background: #ddd; border-bottom: 2px solid #ccc; z-index: 5; }
@@ -40,27 +40,32 @@
 
         function spawnCar() {
             if (isPaused) return;
-            const isVertical = Math.random() > 0.5;
-            const carIdx = Math.floor(Math.random() * 5); 
-            const car = {
-                x: isVertical ? canvas.width/2 + 5 : -100,
-                y: isVertical ? -100 : canvas.height/2 + 5,
-                speed: 2, dir: isVertical ? 'down' : 'right',
-                type: 'normal', carIdx: carIdx, passed: false, width: 45, height: 45
-            };
-            if (!cars.some(o => Math.abs(o.x - car.x) < 85 && Math.abs(o.y - car.y) < 85)) cars.push(car);
+            const directions = ['right', 'down', 'left', 'up'];
+            const dir = directions[Math.floor(Math.random() * directions.length)];
+            const carIdx = Math.floor(Math.random() * 5);
+            
+            const mx = canvas.width / 2, my = canvas.height / 2;
+            let x, y;
+
+            if (dir === 'right') { x = -100; y = my + 5; }
+            else if (dir === 'down') { x = mx + 5; y = -100; }
+            else if (dir === 'left') { x = canvas.width + 100; y = my - 50; }
+            else if (dir === 'up') { x = mx - 50; y = canvas.height + 100; }
+
+            const car = { x, y, speed: 2, dir, type: 'normal', carIdx, passed: false, width: 45, height: 45 };
+            if (!cars.some(o => Math.abs(o.x - car.x) < 90 && Math.abs(o.y - car.y) < 90)) cars.push(car);
         }
-        setInterval(spawnCar, 2000);
+        setInterval(spawnCar, 1500);
 
         function spawnEmergency() {
             if (isPaused) return;
+            const mx = canvas.width / 2, my = canvas.height / 2;
             cars.push({
-                x: -100, y: canvas.height/2 + 5,
-                speed: 1.5, dir: 'right', type: 'emergency', eType: Math.floor(Math.random() * 3),
-                passed: false, width: 55, height: 55
+                x: -100, y: my + 5, speed: 1.5, dir: 'right', type: 'emergency', 
+                eType: Math.floor(Math.random() * 3), passed: false, width: 55, height: 55
             });
         }
-        setInterval(spawnEmergency, 12000);
+        setInterval(spawnEmergency, 15000);
 
         window.addEventListener('message', (e) => {
             if (e.data === 'adFinished') {
@@ -105,54 +110,75 @@
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 sirenFrame++;
                 const mx = canvas.width / 2, my = canvas.height / 2;
-                ctx.fillStyle = '#444'; ctx.fillRect(0, my - 45, canvas.width, 90); ctx.fillRect(mx - 45, 0, 90, canvas.height);
+                
+                // 道路描画
+                ctx.fillStyle = '#444'; 
+                ctx.fillRect(0, my - 50, canvas.width, 100); // 横道路
+                ctx.fillRect(mx - 50, 0, 100, canvas.height); // 縦道路
+                
+                // 白線（センターライン）
+                ctx.strokeStyle = '#fff'; ctx.setLineDash([10, 10]); ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(0, my); ctx.lineTo(canvas.width, my); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(mx, 0); ctx.lineTo(mx, canvas.height); ctx.stroke();
+                ctx.setLineDash([]);
 
                 let hCol = (signalState <= 1) ? (signalState === 0 ? 'green' : 'yellow') : 'red';
                 let vCol = (signalState >= 2) ? (signalState === 2 ? 'green' : 'yellow') : 'red';
-                drawSignal(mx - 90, my + 50, hCol); drawSignal(mx + 50, my - 90, vCol);
+                drawSignal(mx - 95, my + 55, hCol); drawSignal(mx + 55, my - 95, vCol);
 
                 cars.forEach((car, i) => {
                     let canMove = true;
+                    // 信号機と衝突判定
                     if (car.type === 'normal') {
                         if (car.dir === 'right' && hCol === 'red' && car.x > mx - 105 && car.x < mx - 85) canMove = false;
                         if (car.dir === 'down' && vCol === 'red' && car.y > my - 105 && car.y < my - 85) canMove = false;
+                        if (car.dir === 'left' && hCol === 'red' && car.x < mx + 60 && car.x > mx + 40) canMove = false;
+                        if (car.dir === 'up' && vCol === 'red' && car.y < my + 60 && car.y > my + 40) canMove = false;
+
+                        // 前の車や緊急車両との衝突回避
                         cars.forEach((o, j) => {
                             if (i !== j && car.dir === o.dir) {
-                                let dist = (car.dir === 'right') ? (o.x - car.x) : (o.y - car.y);
-                                if (dist > 0 && dist < 80) canMove = false;
+                                let dist;
+                                if (car.dir === 'right') dist = o.x - car.x;
+                                else if (car.dir === 'down') dist = o.y - car.y;
+                                else if (car.dir === 'left') dist = car.x - o.x;
+                                else if (car.dir === 'up') dist = car.y - o.y;
+                                if (dist > 0 && dist < 85) canMove = false;
                             }
                         });
                     }
-                    if (canMove) { car.x += (car.dir === 'right' ? car.speed : 0); car.y += (car.dir === 'down' ? car.speed : 0); }
+
+                    if (canMove) {
+                        if (car.dir === 'right') car.x += car.speed;
+                        else if (car.dir === 'down') car.y += car.speed;
+                        else if (car.dir === 'left') car.x -= car.speed;
+                        else if (car.dir === 'up') car.y -= car.speed;
+                    }
 
                     ctx.save();
                     ctx.translate(car.x + car.width/2, car.y + car.height/2);
-                    
-                    if (car.dir === 'right') {
-                        ctx.rotate(Math.PI / 2);
-                    } else if (car.dir === 'down') {
-                        ctx.rotate(Math.PI); // ライトを下に(180度)向ける
-                    }
-                    
+                    if (car.dir === 'right') ctx.rotate(Math.PI / 2);
+                    else if (car.dir === 'down') ctx.rotate(Math.PI);
+                    else if (car.dir === 'left') ctx.rotate(-Math.PI / 2);
+                    // 'up' は rotate(0) なのでそのまま
+
                     if (car.type === 'emergency' && images.kinkyu.complete) {
                         const isLit = (Math.floor(sirenFrame / 15) % 2 === 0);
                         const sx = car.eType * (images.kinkyu.width / 3) + 30;
                         const sy = (isLit ? 240 : 20) + 30;
                         ctx.drawImage(images.kinkyu, sx, sy, 140, 140, -car.width/2, -car.height/2, car.width, car.height);
                     } else if (images.cars.complete) {
-                        const sw = images.cars.width / 5;
-                        const sh = images.cars.height / 2;
-                        // y座標は0(1段目)に固定して斜め車両を防止
+                        const sw = images.cars.width / 5, sh = images.cars.height / 2;
                         ctx.drawImage(images.cars, car.carIdx * sw, 0, sw, sh, -car.width/2, -car.height/2, car.width, car.height);
                     }
                     ctx.restore();
 
-                    if (!car.passed && (car.x > mx || car.y > my)) {
+                    if (!car.passed && (Math.abs(car.x - mx) < 10 || Math.abs(car.y - my) < 10)) {
                         gold += (car.type === 'emergency' ? 0 : signalLevel); car.passed = true;
                         document.getElementById('goldDisplay').innerText = gold;
                     }
                 });
-                cars = cars.filter(c => c.x < canvas.width + 150 && c.y < canvas.height + 150);
+                cars = cars.filter(c => c.x > -200 && c.x < canvas.width + 200 && c.y > -200 && c.y < canvas.height + 200);
             }
             requestAnimationFrame(update);
         }
