@@ -146,18 +146,17 @@
 
 　　　　　　　　　　　　　　　　// 向きの制御
 　　　　　　　　　　　　　　　if (car.dir === 'right') {
-    ctx.rotate(Math.PI / 2); // 右向き（横道路）
-} else if (car.dir === 'down') {
-    ctx.rotate(Math.PI);     // ★180度回転してライトを前（下）に向ける★
-}
+                     ctx.rotate(Math.PI / 2); // 右向き（横道路）
+　　　　　　　　　　　　　　} else if (car.dir === 'down') {
+                     ctx.rotate(Math.PI);     // ★180度回転してライトを前（下）に向ける★
+　　　　　　　　　　　　　　}
 
-// 描画（常に1段目の carIdx 番目を使用）
-ctx.drawImage(
-    images.cars, 
-    car.carIdx * sw, 0, sw, sh, 
-    -car.width/2, -car.height/2, car.width, car.height
-);
-ctx.restore();
+　　　　　　　　　　　　　　　　// 描画（常に1段目の carIdx 番目を使用）
+　　　　　　　　　　　　　　ctx.drawImage(
+　　　　　　　　　　　　　　images.cars, 
+                     car.carIdx * sw, 0, sw, sh, 
+                     -car.width/2, -car.height/2, car.width, car.hei);
+　　　　　　　　　　　　　　ctx.restore();
 
                     if (!car.passed && (car.x > mx || car.y > my)) {
                         gold += (car.type === 'emergency' ? 0 : signalLevel); car.passed = true;
