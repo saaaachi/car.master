@@ -3,23 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Road Master - UI Update</title>
+    <title>Road Master - Happiness Flow</title>
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; background: #7ab36a; font-family: 'Helvetica Neue', Arial, sans-serif; }
+        body { margin: 0; padding: 0; overflow: hidden; background: #7ab36a; font-family: sans-serif; }
         #gameContainer { position: relative; width: 100vw; height: 100vh; }
-        
-        /* 広告スペース */
         #adArea { width: 100%; height: 50px; background: #eee; position: absolute; top: 0; z-index: 1000; }
-        
         canvas { display: block; }
 
-        /* 左上の角丸ステータスパネル */
         .status-panel { 
             position: absolute; top: 60px; left: 15px; 
             background: rgba(0, 0, 0, 0.75); color: #fff; 
             padding: 12px 18px; border-radius: 20px; 
-            font-size: 18px; line-height: 1.6; z-index: 100;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            font-size: 18px; z-index: 100;
         }
         .status-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 
@@ -37,11 +32,10 @@
 
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
-        
         <div class="status-panel">
             <div class="status-item">💰 <span id="goldText">50</span></div>
-            <div class="status-item">💛 <span id="happyText">100</span></div>
-            <div class="status-item">👫 <span id="popText">0</span></div>
+            <div class="status-item">💛 <span id="happyText">1.0</span></div>
+            <div class="status-item">👫 <span id="popText">1</span></div>
         </div>
 
         <div id="signalPanel" class="panel">
@@ -55,7 +49,8 @@
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        let gold = 50, happy = 100, pop = 0;
+        
+        let gold = 50, happy = 1.0, pop = 1;
         let signalLevel = 1, signalState = 0, isPaused = false;
         let lastChangeTime = Date.now(), autoChangeTime = 5;
 
@@ -69,21 +64,31 @@
 
         let cars = [];
 
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
         window.addEventListener('resize', resize); resize();
 
+        // 人口が幸福度（整数値）を追いかけるロジック
+        setInterval(() => {
+            let targetPop = Math.max(1, Math.floor(happy));
+            if (pop < targetPop) pop++;
+            else if (pop > targetPop) pop--;
+            updateUI();
+        }, 3000);
+
         function spawnCar() {
-            if (isPaused || cars.length > 20) return;
+            if (isPaused || cars.length >= pop * 3 + 5) return;
             const dirs = ['right', 'down', 'left', 'up'];
             const dir = dirs[Math.floor(Math.random()*4)];
             const mx = canvas.width/2, my = canvas.height/2;
             let x, y;
             if(dir==='right'){ x=-50; y=my+10; } else if(dir==='down'){ x=mx+10; y=-50; }
             else if(dir==='left'){ x=canvas.width+50; y=my-40; } else { x=mx-40; y=canvas.height+50; }
-            cars.push({ x, y, speed: 3, dir, passed: false, id: Math.random() });
+            
+            cars.push({ 
+                x, y, speed: 2.5 + Math.random(), dir, 
+                passed: false, id: Math.random(),
+                waitTime: 0 // 待ち時間計測用
+            });
         }
         setInterval(spawnCar, 1500);
 
@@ -97,15 +102,12 @@
                     lastChangeTime = Date.now();
                 }
 
-                // 道路描画
                 ctx.fillStyle = '#444';
                 ctx.fillRect(0, my-50, canvas.width, 100);
                 ctx.fillRect(mx-50, 0, 100, canvas.height);
 
-                // 信号機の描画
                 if(images.singo.complete) {
-                    const sw = images.singo.width / 4;
-                    const sh = images.singo.height / 2;
+                    const sw = images.singo.width / 4, sh = images.singo.height / 2;
                     const col = signalLevel - 1;
                     ctx.drawImage(images.singo, col*sw, (signalState >= 2 ? 0 : sh), sw, sh, mx-75, my-25, 40, 40);
                     ctx.drawImage(images.singo, col*sw, (signalState < 2 ? 0 : sh), sw, sh, mx-25, my-75, 40, 40);
@@ -127,6 +129,9 @@
                     if(canMove) {
                         if(car.dir==='right') car.x+=car.speed; else if(car.dir==='down') car.y+=car.speed;
                         else if(car.dir==='left') car.x-=car.speed; else car.y-=car.speed;
+                    } else {
+                        // 止まっている間、待ち時間を加算 (60fps想定で1フレーム 1/60秒)
+                        car.waitTime += 1/60;
                     }
 
                     ctx.save();
@@ -135,8 +140,20 @@
                     if(images.cars.complete) ctx.drawImage(images.cars, 0, 0, images.cars.width/5, images.cars.height/2, -20, -20, 40, 40);
                     ctx.restore();
 
+                    // 通過判定
                     if (!car.passed && Math.abs(car.x - mx) < 35 && Math.abs(car.y - my) < 35) {
+                        // 収益加算
                         gold += upgradeInfo[signalLevel-1].income;
+                        
+                        // 幸福度判定
+                        if (car.waitTime <= 1.0) {
+                            happy += 0.2;
+                        } else if (car.waitTime >= 3.1) {
+                            happy -= 0.2;
+                        }
+                        // 幸福度が0以下にならないように
+                        happy = Math.max(0, happy);
+                        
                         car.passed = true;
                         updateUI();
                     }
@@ -148,16 +165,17 @@
 
         function updateUI() {
             document.getElementById('goldText').innerText = gold;
-            document.getElementById('happyText').innerText = happy;
+            document.getElementById('happyText').innerText = happy.toFixed(1); // 小数点1桁まで表示
             document.getElementById('popText').innerText = pop;
-            document.getElementById('sigLvText').innerText = signalLevel;
+            document.getElementById('sigLvText') ? document.getElementById('sigLvText').innerText = signalLevel : null;
             const info = upgradeInfo[signalLevel - 1];
-            if (info.next) {
+            const btn = document.getElementById('upgradeBtn');
+            if (info && info.next) {
                 document.getElementById('nextUpgradeText').innerText = `次へ: ${info.next}G`;
-                document.getElementById('upgradeBtn').disabled = gold < info.next;
-            } else {
+                btn.disabled = gold < info.next;
+            } else if(btn) {
                 document.getElementById('nextUpgradeText').innerText = "Max Level";
-                document.getElementById('upgradeBtn').style.display = 'none';
+                btn.style.display = 'none';
             }
         }
 
@@ -173,7 +191,13 @@
 
         function upgradeSignal() {
             const nextCost = upgradeInfo[signalLevel-1].next;
-            if(nextCost && gold >= nextCost) { gold -= nextCost; signalLevel++; updateUI(); closeAll(); }
+            if(nextCost && gold >= nextCost) {
+                gold -= nextCost;
+                signalLevel++;
+                happy += 1.0; // 信号強化でも幸福度アップ！
+                updateUI();
+                closeAll();
+            }
         }
         function closeAll() { document.querySelectorAll('.panel').forEach(p=>p.style.display='none'); isPaused=false; }
         
