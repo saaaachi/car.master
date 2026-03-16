@@ -58,13 +58,15 @@
         let lastChangeTime = Date.now(), greenTime = 5;
         let cars = [];
 
+        // 画像の読み込み管理
         const images = { cars: new Image(), singo: new Image() };
         images.cars.src = 'images/car.png';
         images.singo.src = 'singo.png';
 
         function resize() { 
-            canvas.width = canvas.parentElement.clientWidth; 
-            canvas.height = canvas.parentElement.clientHeight; 
+            const container = document.getElementById('gameContainer');
+            canvas.width = container.clientWidth; 
+            canvas.height = container.clientHeight; 
         }
         window.addEventListener('resize', resize); resize();
 
@@ -77,7 +79,7 @@
             else if(dir==='down'){ x=mx+10; y=-60; }
             else if(dir==='left'){ x=canvas.width+60; y=my-40; } 
             else { x=mx-40; y=canvas.height+60; }
-            cars.push({ x, y, speed: 2 + Math.random(), dir, passed: false, id: Math.random(), waitTime: 0 });
+            cars.push({ x, y, speed: 1.5 + Math.random(), dir, passed: false, id: Math.random(), waitTime: 0 });
         }
 
         setInterval(() => {
@@ -99,19 +101,27 @@
                     lastChangeTime = Date.now();
                 }
 
+                // 道路
                 ctx.fillStyle = '#444';
                 ctx.fillRect(0, my-50, canvas.width, 100);
                 ctx.fillRect(mx-50, 0, 100, canvas.height);
 
                 const vGo = signalState < 2, hGo = signalState >= 2;
 
+                // 信号描画 (singo.pngを優先、ダメなら図形)
                 drawSpriteSignal(mx-85, my-25, hGo);
                 drawSpriteSignal(mx-25, my-85, vGo);
 
                 cars.forEach(car => {
                     let canMove = true;
                     const front = cars.find(o => o.id !== car.id && Math.abs(o.x - car.x) < 45 && Math.abs(o.y - car.y) < 45);
-                    if(front) canMove = false;
+                    if(front) {
+                        // 進行方向の車のみチェック
+                        if(car.dir==='right' && front.x > car.x) canMove = false;
+                        if(car.dir==='down' && front.y > car.y) canMove = false;
+                        if(car.dir==='left' && front.x < car.x) canMove = false;
+                        if(car.dir==='up' && front.y < car.y) canMove = false;
+                    }
 
                     const stopLine = 85;
                     if(car.dir==='right' && !hGo && car.x > mx-stopLine && car.x < mx-60) canMove = false;
@@ -127,29 +137,27 @@
                     ctx.save();
                     ctx.translate(car.x+20, car.y+20);
                     if(car.dir==='right') ctx.rotate(Math.PI/2); else if(car.dir==='down') ctx.rotate(Math.PI); else if(car.dir==='left') ctx.rotate(-Math.PI/2);
-                    if(images.cars.complete) ctx.drawImage(images.cars, 0, 0, images.cars.width/5, images.cars.height/2, -20, -20, 40, 40);
+                    
+                    if(images.cars.complete && images.cars.naturalWidth > 0) {
+                        ctx.drawImage(images.cars, 0, 0, images.cars.width/5, images.cars.height/2, -20, -20, 40, 40);
+                    } else {
+                        ctx.fillStyle = '#f33'; ctx.fillRect(-15, -10, 30, 20); // 代わりの赤い四角
+                    }
                     ctx.restore();
 
-                    // ★ 通過判定と幸福度の厳密適用
+                    // 通過判定
                     if (!car.passed) {
-                        let isCrossing = false;
-                        if(car.dir==='right' && car.x > mx) isCrossing = true;
-                        if(car.dir==='down' && car.y > my) isCrossing = true;
-                        if(car.dir==='left' && car.x < mx) isCrossing = true;
-                        if(car.dir==='up' && car.y < my) isCrossing = true;
+                        let crossed = false;
+                        if(car.dir==='right' && car.x > mx) crossed = true;
+                        if(car.dir==='down' && car.y > my) crossed = true;
+                        if(car.dir==='left' && car.x < mx) crossed = true;
+                        if(car.dir==='up' && car.y < my) crossed = true;
 
-                        if(isCrossing) {
+                        if(crossed) {
                             gold += signalLevel; 
-                            
-                            // 指定通りの条件
-                            if (car.waitTime <= 1.0) {
-                                happy += 0.2; // 1秒以内
-                            } else if (car.waitTime >= 3.1) {
-                                happy -= 0.2; // 3.1秒以降
-                            }
-                            // 3秒までは加算なし。下限のみ設定（0以下にならないように）
-                            happy = Math.max(0.1, happy); 
-
+                            if (car.waitTime <= 1.0) happy += 0.2; 
+                            else if (car.waitTime >= 3.1) happy -= 0.2;
+                            happy = Math.max(0.1, happy);
                             car.passed = true;
                             updateUI();
                         }
@@ -161,12 +169,18 @@
         }
 
         function drawSpriteSignal(x, y, isGreen) {
+            // 画像が読み込めているかチェック
             if(images.singo.complete && images.singo.naturalWidth > 0) {
                 const sw = images.singo.width / 4;
                 const sh = images.singo.height / 2;
                 const col = (signalLevel - 1) % 4;
                 const row = isGreen ? sh : 0;
                 ctx.drawImage(images.singo, col*sw, row, sw, sh, x, y, 40, 40);
+            } else {
+                // 画像がない場合のバックアップ表示
+                ctx.fillStyle = '#222'; ctx.fillRect(x, y, 30, 40);
+                ctx.fillStyle = isGreen ? '#0f0' : '#f00';
+                ctx.beginPath(); ctx.arc(x+15, y+(isGreen?30:10), 8, 0, Math.PI*2); ctx.fill();
             }
         }
 
