@@ -3,18 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Road Master - Emergency Start</title>
+    <title>Road Master - Sprite Edition</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background: #7ab36a; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
-        #adArea { width: 100%; height: 60px; background: #eee; flex-shrink: 0; z-index: 1000; }
+        #adArea { width: 100%; height: 60px; background: #eee; flex-shrink: 0; z-index: 1000; border-bottom: 2px solid #ccc; }
         #gameContainer { position: relative; flex-grow: 1; width: 100%; overflow: hidden; }
-        canvas { display: block; width: 100%; height: 100%; background: #7ab36a; }
+        canvas { display: block; width: 100%; height: 100%; }
         
+        /* UIを左上にコンパクト配置 */
         .status-panel { 
             position: absolute; top: 10px; left: 10px; 
             background: rgba(0, 0, 0, 0.6); color: #fff; 
-            padding: 8px 12px; border-radius: 10px; 
-            font-size: 12px; z-index: 100; pointer-events: none;
+            padding: 8px 12px; border-radius: 12px; 
+            font-size: 13px; z-index: 100; pointer-events: none;
+            display: flex; flex-direction: column; gap: 2px;
         }
 
         .panel { 
@@ -57,7 +59,6 @@
         let lastChangeTime = Date.now(), greenTime = 5;
         let cars = [];
 
-        // 画像の準備（読み込みに失敗してもエラーで止めない）
         const images = { cars: new Image(), singo: new Image() };
         images.cars.src = 'images/car.png';
         images.singo.src = 'singo.png';
@@ -80,7 +81,6 @@
             cars.push({ x, y, speed: 2 + Math.random(), dir, passed: false, id: Math.random(), waitTime: 0 });
         }
 
-        // 1秒ごとに人口と車両数をチェック
         setInterval(() => {
             if (isPaused) return;
             let tp = Math.max(1, Math.floor(happy));
@@ -95,30 +95,27 @@
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 const mx = canvas.width/2, my = canvas.height/2;
 
-                // 信号切り替え
                 if (Date.now() - lastChangeTime > greenTime * 1000) {
                     signalState = (signalState + 1) % 4;
                     lastChangeTime = Date.now();
                 }
 
-                // 道路の描画
+                // 道路
                 ctx.fillStyle = '#444';
                 ctx.fillRect(0, my-50, canvas.width, 100);
                 ctx.fillRect(mx-50, 0, 100, canvas.height);
 
                 const vGo = signalState < 2, hGo = signalState >= 2;
 
-                // 信号の描画（画像があれば画像、なければ図形）
-                drawSignal(mx-85, my-25, hGo); // 横道用
-                drawSignal(mx-25, my-85, vGo); // 縦道用
+                // 信号描画（singo.png）
+                drawSpriteSignal(mx-85, my-25, hGo); // 横
+                drawSpriteSignal(mx-25, my-85, vGo); // 縦
 
                 cars.forEach(car => {
                     let canMove = true;
-                    // 車間距離
-                    const front = cars.find(o => o.id !== car.id && Math.abs(o.x - car.x) < 50 && Math.abs(o.y - car.y) < 50);
+                    const front = cars.find(o => o.id !== car.id && Math.abs(o.x - car.x) < 45 && Math.abs(o.y - car.y) < 45);
                     if(front) canMove = false;
 
-                    // 信号判定
                     const stopLine = 85;
                     if(car.dir==='right' && !hGo && car.x > mx-stopLine && car.x < mx-60) canMove = false;
                     if(car.dir==='down' && !vGo && car.y > my-stopLine && car.y < my-60) canMove = false;
@@ -130,23 +127,21 @@
                         else if(car.dir==='left') car.x-=car.speed; else car.y-=car.speed;
                     } else { car.waitTime += 1/60; }
 
-                    // 車の描画
+                    // 車
                     ctx.save();
                     ctx.translate(car.x+20, car.y+20);
                     if(car.dir==='right') ctx.rotate(Math.PI/2); else if(car.dir==='down') ctx.rotate(Math.PI); else if(car.dir==='left') ctx.rotate(-Math.PI/2);
-                    
-                    if(images.cars.complete && images.cars.naturalWidth > 0) {
-                        ctx.drawImage(images.cars, 0, 0, images.cars.width/5, images.cars.height/2, -20, -20, 40, 40);
-                    } else {
-                        ctx.fillStyle = 'red'; ctx.fillRect(-15, -10, 30, 20); // 画像がない時は赤い四角
-                    }
+                    if(images.cars.complete) ctx.drawImage(images.cars, 0, 0, images.cars.width/5, images.cars.height/2, -20, -20, 40, 40);
                     ctx.restore();
 
-                    // 通過判定
+                    // 通過判定（ここでGと幸福度を更新）
                     if (!car.passed && Math.abs(car.x - mx) < 35 && Math.abs(car.y - my) < 35) {
-                        gold += signalLevel;
-                        if (car.waitTime <= 1.0) happy += 0.2; else if (car.waitTime >= 3.1) happy -= 0.2;
-                        happy = Math.max(0.1, happy); car.passed = true; updateUI();
+                        gold += signalLevel; // レベル分ゴールドGET
+                        if (car.waitTime <= 1.0) happy += 0.2; // スムーズなら幸福度UP
+                        else if (car.waitTime >= 3.0) happy -= 0.2; // 待たせるとDOWN
+                        happy = Math.max(0.1, happy);
+                        car.passed = true;
+                        updateUI();
                     }
                 });
                 cars = cars.filter(c => (c.x > -200 && c.x < canvas.width+200 && c.y > -200 && c.y < canvas.height+200));
@@ -154,14 +149,13 @@
             requestAnimationFrame(update);
         }
 
-        function drawSignal(x, y, isGreen) {
+        function drawSpriteSignal(x, y, isGreen) {
             if(images.singo.complete && images.singo.naturalWidth > 0) {
-                const sw = images.singo.width/4, sh = images.singo.height/2;
-                ctx.drawImage(images.singo, (signalLevel-1)*sw, (isGreen?sh:0), sw, sh, x, y, 40, 40);
-            } else {
-                ctx.fillStyle = '#222'; ctx.fillRect(x, y, 30, 15);
-                ctx.fillStyle = isGreen ? '#0f0' : '#f00';
-                ctx.beginPath(); ctx.arc(x + (isGreen?22:8), y+7.5, 5, 0, Math.PI*2); ctx.fill();
+                const sw = images.singo.width / 4;
+                const sh = images.singo.height / 2;
+                const col = (signalLevel - 1) % 4;
+                // isGreenがtrueなら下の段(sh)、falseなら上の段(0)を描画
+                ctx.drawImage(images.singo, col*sw, (isGreen ? sh : 0), sw, sh, x, y, 40, 40);
             }
         }
 
