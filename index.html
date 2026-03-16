@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Road Master - Sprite Edition</title>
+    <title>Road Master - Sprite & Profit</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background: #7ab36a; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
         #adArea { width: 100%; height: 60px; background: #eee; flex-shrink: 0; z-index: 1000; border-bottom: 2px solid #ccc; }
         #gameContainer { position: relative; flex-grow: 1; width: 100%; overflow: hidden; }
         canvas { display: block; width: 100%; height: 100%; }
         
-        /* UIを左上にコンパクト配置 */
         .status-panel { 
             position: absolute; top: 10px; left: 10px; 
             background: rgba(0, 0, 0, 0.6); color: #fff; 
@@ -85,7 +84,7 @@
             if (isPaused) return;
             let tp = Math.max(1, Math.floor(happy));
             if (pop < tp) pop++; else if (pop > tp) pop--;
-            let targetCount = (pop * 0.4 <= 0.9) ? 1 : Math.floor(pop * 0.4);
+            let targetCount = Math.max(1, Math.floor(pop * 0.4));
             if (cars.length < targetCount) spawnCar();
             updateUI();
         }, 1000);
@@ -100,7 +99,6 @@
                     lastChangeTime = Date.now();
                 }
 
-                // 道路
                 ctx.fillStyle = '#444';
                 ctx.fillRect(0, my-50, canvas.width, 100);
                 ctx.fillRect(mx-50, 0, 100, canvas.height);
@@ -127,21 +125,29 @@
                         else if(car.dir==='left') car.x-=car.speed; else car.y-=car.speed;
                     } else { car.waitTime += 1/60; }
 
-                    // 車
                     ctx.save();
                     ctx.translate(car.x+20, car.y+20);
                     if(car.dir==='right') ctx.rotate(Math.PI/2); else if(car.dir==='down') ctx.rotate(Math.PI); else if(car.dir==='left') ctx.rotate(-Math.PI/2);
                     if(images.cars.complete) ctx.drawImage(images.cars, 0, 0, images.cars.width/5, images.cars.height/2, -20, -20, 40, 40);
                     ctx.restore();
 
-                    // 通過判定（ここでGと幸福度を更新）
-                    if (!car.passed && Math.abs(car.x - mx) < 35 && Math.abs(car.y - my) < 35) {
-                        gold += signalLevel; // レベル分ゴールドGET
-                        if (car.waitTime <= 1.0) happy += 0.2; // スムーズなら幸福度UP
-                        else if (car.waitTime >= 3.0) happy -= 0.2; // 待たせるとDOWN
-                        happy = Math.max(0.1, happy);
-                        car.passed = true;
-                        updateUI();
+                    // ★ 通過判定（1台ごとに確実にGと幸福度を反映）
+                    // 車の中心が交差点の中心（mx, my）を通り過ぎた瞬間に判定
+                    if (!car.passed) {
+                        let isCrossing = false;
+                        if(car.dir==='right' && car.x > mx) isCrossing = true;
+                        if(car.dir==='down' && car.y > my) isCrossing = true;
+                        if(car.dir==='left' && car.x < mx) isCrossing = true;
+                        if(car.dir==='up' && car.y < my) isCrossing = true;
+
+                        if(isCrossing) {
+                            gold += signalLevel; // 1台ごとにG増加
+                            if (car.waitTime <= 1.5) happy += 0.1; // 待ち時間が短い
+                            else if (car.waitTime >= 4.0) happy -= 0.1; // 待たせすぎ
+                            happy = Math.min(2.0, Math.max(0.1, happy));
+                            car.passed = true; // 2度押し防止
+                            updateUI();
+                        }
                     }
                 });
                 cars = cars.filter(c => (c.x > -200 && c.x < canvas.width+200 && c.y > -200 && c.y < canvas.height+200));
@@ -153,9 +159,9 @@
             if(images.singo.complete && images.singo.naturalWidth > 0) {
                 const sw = images.singo.width / 4;
                 const sh = images.singo.height / 2;
-                const col = (signalLevel - 1) % 4;
-                // isGreenがtrueなら下の段(sh)、falseなら上の段(0)を描画
-                ctx.drawImage(images.singo, col*sw, (isGreen ? sh : 0), sw, sh, x, y, 40, 40);
+                const col = (signalLevel - 1) % 4; // レベルで横列切り替え
+                const row = isGreen ? sh : 0;      // 青なら下段、赤なら上段
+                ctx.drawImage(images.singo, col*sw, row, sw, sh, x, y, 40, 40);
             }
         }
 
@@ -178,7 +184,7 @@
         canvas.addEventListener('mousedown', (e) => {
             const r = canvas.getBoundingClientRect();
             const mx = e.clientX - r.left, my = e.clientY - r.top;
-            if (Math.abs(mx - canvas.width/2) < 100 && Math.abs(my - canvas.height/2) < 100) { 
+            if (Math.abs(mx - canvas.width/2) < 50 && Math.abs(my - canvas.height/2) < 50) { 
                 document.getElementById('signalPanel').style.display='block'; isPaused = true; updateUI();
             }
         });
