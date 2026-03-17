@@ -3,24 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Road Master - High Stakes</title>
+    <title>Road Master - Code Signal</title>
     <style>
+        /* 画面全体のレイアウト */
         body { margin: 0; padding: 0; overflow: hidden; background: #7ab36a; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
-        #adArea { width: 100%; height: 60px; background: #eee; flex-shrink: 0; z-index: 1000; border-bottom: 2px solid #ccc; }
-        #gameContainer { position: relative; flex-grow: 1; width: 100%; overflow: hidden; }
-        canvas { display: block; width: 100%; height: 100%; }
         
+        /* 広告エリア */
+        #adArea { width: 100%; height: 60px; background: #eee; flex-shrink: 0; z-index: 1000; border-bottom: 2px solid #ccc; }
+        
+        /* ゲーム画面 */
+        #gameContainer { position: relative; flex-grow: 1; width: 100%; overflow: hidden; }
+        canvas { display: block; width: 100%; height: 100%; background: #7ab36a; }
+        
+        /* UIを左上にコンパクトに配置 */
         .status-panel { 
             position: absolute; top: 10px; left: 10px; 
             background: rgba(0, 0, 0, 0.6); color: #fff; 
-            padding: 8px 12px; border-radius: 12px; 
-            font-size: 13px; z-index: 100; pointer-events: none;
+            padding: 6px 12px; border-radius: 12px; 
+            font-size: 13px; z-index: 100;
             display: flex; flex-direction: column; gap: 2px;
+            pointer-events: none;
         }
 
         .panel { 
             display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: #fff; border: 3px solid #333; padding: 20px; border-radius: 20px; z-index: 2000; width: 220px; text-align: center;
+            background: #fff; border: 3px solid #333; padding: 20px; border-radius: 20px; z-index: 2000; width: 240px; text-align: center;
         }
         .btn { width: 100%; padding: 12px; background: #ffcc00; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 8px; }
     </style>
@@ -32,6 +39,7 @@
 
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
+        
         <div class="status-panel">
             <div>💰 <span id="goldText">50</span></div>
             <div>👫 <span id="popText">1</span></div>
@@ -56,12 +64,13 @@
         let gold = 50, happy = 1.0, pop = 1;
         let signalLevel = 1, signalState = 0, isPaused = false;
         let lastChangeTime = Date.now(), greenTime = 5;
-        let cars = [];
 
-        // 画像の読み込み管理
-        const images = { cars: new Image(), singo: new Image() };
+        // 画像の準備（読み込みに失敗しても図形で補完する）
+        const images = { cars: new Image() };
         images.cars.src = 'images/car.png';
-        images.singo.src = 'singo.png';
+
+        const upgradeCosts = [30, 50, 100, 200];
+        let cars = [];
 
         function resize() { 
             const container = document.getElementById('gameContainer');
@@ -79,14 +88,17 @@
             else if(dir==='down'){ x=mx+10; y=-60; }
             else if(dir==='left'){ x=canvas.width+60; y=my-40; } 
             else { x=mx-40; y=canvas.height+60; }
-            cars.push({ x, y, speed: 1.5 + Math.random(), dir, passed: false, id: Math.random(), waitTime: 0 });
+            
+            cars.push({ x, y, speed: 2 + Math.random(), dir, passed: false, id: Math.random(), waitTime: 0 });
         }
 
         setInterval(() => {
             if (isPaused) return;
             let tp = Math.max(1, Math.floor(happy));
             if (pop < tp) pop++; else if (pop > tp) pop--;
-            let targetCount = Math.max(1, Math.floor(pop * 0.4));
+
+            // 人口×0.4、最低1台のルール
+            let targetCount = (pop * 0.4 <= 0.9) ? 1 : Math.floor(pop * 0.4);
             if (cars.length < targetCount) spawnCar();
             updateUI();
         }, 1000);
@@ -108,20 +120,15 @@
 
                 const vGo = signalState < 2, hGo = signalState >= 2;
 
-                // 信号描画 (singo.pngを優先、ダメなら図形)
-                drawSpriteSignal(mx-85, my-25, hGo);
-                drawSpriteSignal(mx-25, my-85, vGo);
+                // ★ 信号描画（コードですべて描く！）
+                // 信号レベル（1〜4）によって土台の色を変える
+                drawCodeSignal(mx-85, my-25, hGo, signalLevel); // 横道用
+                drawCodeSignal(mx-25, my-85, vGo, signalLevel); // 縦道用
 
                 cars.forEach(car => {
                     let canMove = true;
                     const front = cars.find(o => o.id !== car.id && Math.abs(o.x - car.x) < 45 && Math.abs(o.y - car.y) < 45);
-                    if(front) {
-                        // 進行方向の車のみチェック
-                        if(car.dir==='right' && front.x > car.x) canMove = false;
-                        if(car.dir==='down' && front.y > car.y) canMove = false;
-                        if(car.dir==='left' && front.x < car.x) canMove = false;
-                        if(car.dir==='up' && front.y < car.y) canMove = false;
-                    }
+                    if(front) canMove = false;
 
                     const stopLine = 85;
                     if(car.dir==='right' && !hGo && car.x > mx-stopLine && car.x < mx-60) canMove = false;
@@ -132,32 +139,44 @@
                     if(canMove) {
                         if(car.dir==='right') car.x+=car.speed; else if(car.dir==='down') car.y+=car.speed;
                         else if(car.dir==='left') car.x-=car.speed; else car.y-=car.speed;
-                    } else { car.waitTime += 1/60; }
+                    } else {
+                        car.waitTime += 1/60;
+                    }
 
+                    // 車の描画
                     ctx.save();
                     ctx.translate(car.x+20, car.y+20);
                     if(car.dir==='right') ctx.rotate(Math.PI/2); else if(car.dir==='down') ctx.rotate(Math.PI); else if(car.dir==='left') ctx.rotate(-Math.PI/2);
                     
-                    if(images.cars.complete && images.cars.naturalWidth > 0) {
+                    if(images.cars.complete && images.cars.naturalWidth !== 0) {
                         ctx.drawImage(images.cars, 0, 0, images.cars.width/5, images.cars.height/2, -20, -20, 40, 40);
                     } else {
-                        ctx.fillStyle = '#f33'; ctx.fillRect(-15, -10, 30, 20); // 代わりの赤い四角
+                        // 画像がない時の代わりの赤い四角
+                        ctx.fillStyle = '#f33';
+                        ctx.fillRect(-15, -10, 30, 20);
                     }
                     ctx.restore();
 
                     // 通過判定
                     if (!car.passed) {
-                        let crossed = false;
-                        if(car.dir==='right' && car.x > mx) crossed = true;
-                        if(car.dir==='down' && car.y > my) crossed = true;
-                        if(car.dir==='left' && car.x < mx) crossed = true;
-                        if(car.dir==='up' && car.y < my) crossed = true;
+                        let isCrossing = false;
+                        if(car.dir==='right' && car.x > mx) isCrossing = true;
+                        if(car.dir==='down' && car.y > my) isCrossing = true;
+                        if(car.dir==='left' && car.x < mx) isCrossing = true;
+                        if(car.dir==='up' && car.y < my) isCrossing = true;
 
-                        if(crossed) {
+                        if(isCrossing) {
                             gold += signalLevel; 
-                            if (car.waitTime <= 1.0) happy += 0.2; 
-                            else if (car.waitTime >= 3.1) happy -= 0.2;
-                            happy = Math.max(0.1, happy);
+                            
+                            // ご指定通りのガチンコ幸福度ロジック
+                            if (car.waitTime <= 1.0) {
+                                happy += 0.2; // 1.0秒以内
+                            } else if (car.waitTime >= 3.1) {
+                                happy -= 0.2; // 3.1秒以降
+                            }
+                            // 幸福度が0以下にならないように下限のみ設定
+                            happy = Math.max(0.1, happy); 
+
                             car.passed = true;
                             updateUI();
                         }
@@ -168,20 +187,21 @@
             requestAnimationFrame(update);
         }
 
-        function drawSpriteSignal(x, y, isGreen) {
-            // 画像が読み込めているかチェック
-            if(images.singo.complete && images.singo.naturalWidth > 0) {
-                const sw = images.singo.width / 4;
-                const sh = images.singo.height / 2;
-                const col = (signalLevel - 1) % 4;
-                const row = isGreen ? sh : 0;
-                ctx.drawImage(images.singo, col*sw, row, sw, sh, x, y, 40, 40);
-            } else {
-                // 画像がない場合のバックアップ表示
-                ctx.fillStyle = '#222'; ctx.fillRect(x, y, 30, 40);
-                ctx.fillStyle = isGreen ? '#0f0' : '#f00';
-                ctx.beginPath(); ctx.arc(x+15, y+(isGreen?30:10), 8, 0, Math.PI*2); ctx.fill();
-            }
+        // 信号機をコードで描画する関数
+        function drawCodeSignal(x, y, isGreen, level) {
+            // 土台の色（レベル1:グレー、2:赤、3:黄、4:青）
+            const baseColors = ['#555', '#e44', '#ee4', '#4ae'];
+            const baseColor = baseColors[(level - 1) % baseColors.length];
+
+            ctx.fillStyle = baseColor;
+            ctx.fillRect(x, y, 30, 40); // 土台の四角
+
+            // ライトの描画
+            ctx.fillStyle = isGreen ? '#0f0' : '#f00'; // 青か赤
+            ctx.beginPath();
+            // isGreenがtrueなら下の丸、falseなら上の丸を光らせる
+            ctx.arc(x + 15, y + (isGreen ? 30 : 10), 8, 0, Math.PI * 2);
+            ctx.fill();
         }
 
         function updateSecText() {
@@ -194,26 +214,38 @@
             document.getElementById('happyText').innerText = happy.toFixed(1);
             document.getElementById('popText').innerText = pop;
             const btn = document.getElementById('upgradeBtn');
-            const costs = [30, 50, 100, 200];
-            let c = costs[signalLevel-1];
-            if(c) { btn.innerText = `強化 (${c}G)`; btn.disabled = gold < c; }
-            else { btn.innerText = "Max"; btn.disabled = true; }
+            const cost = upgradeCosts[signalLevel-1];
+            if(cost) {
+                btn.innerText = `強化 (${cost}G)`;
+                btn.disabled = gold < cost;
+            } else {
+                btn.innerText = "Max Level";
+                btn.disabled = true;
+            }
         }
 
         canvas.addEventListener('mousedown', (e) => {
-            const r = canvas.getBoundingClientRect();
-            const mx = e.clientX - r.left, my = e.clientY - r.top;
-            if (Math.abs(mx - canvas.width/2) < 50 && Math.abs(my - canvas.height/2) < 50) { 
-                document.getElementById('signalPanel').style.display='block'; isPaused = true; updateUI();
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            const cx = canvas.width/2, cy = canvas.height/2;
+            // 信号機付近をクリックでアップグレード画面を開く
+            if (Math.abs(mx-cx)<100 && Math.abs(my-cy)<100) { 
+                document.getElementById('signalPanel').style.display='block'; 
+                isPaused = true; updateUI();
             }
         });
 
         function upgradeSignal() {
-            const costs = [30, 50, 100, 200];
-            let c = costs[signalLevel-1];
-            if(c && gold >= c) { gold -= c; signalLevel++; updateUI(); }
+            const cost = upgradeCosts[signalLevel-1];
+            if(cost && gold >= cost) {
+                gold -= cost;
+                signalLevel++;
+                updateUI();
+            }
         }
         function closeAll() { document.getElementById('signalPanel').style.display='none'; isPaused = false; }
+        
         update();
     </script>
 </body>
