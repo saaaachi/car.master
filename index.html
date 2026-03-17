@@ -51,7 +51,7 @@
             <h3 style="margin:0 0 10px 0">🚦 信号設定</h3>
             <div style="text-align:left; font-size:12px;">
                 <label>青信号: <span id="secDisplay">5</span>秒</label>
-                <input type="range" id="secInput" min="2" max="15" value="5" style="width:100%" oninput="updateSecText()" onchange="updateSecText()">
+                <input type="range" id="secInput" min="2" max="15" value="5" style="width:100%" oninput="updateSecText()">
             </div>
             <button id="upgradeBtn" class="btn" onclick="upgradeSignal()">強化</button>
             <button class="btn" style="background:#eee" onclick="closeAll()">閉じる</button>
@@ -69,7 +69,7 @@
         
         let gold = 50, happy = 1.0, pop = 1;
         let signalLevel = 1, signalState = 0, isPaused = false;
-        let lastChangeTime = Date.now(), greenTime = 5;
+        let timer = 0, greenTime = 5; // timer変数でシンプルにカウント管理
 
         const images = { cars: new Image(), kinkyu: new Image() };
         images.cars.src = 'images/car.png';
@@ -105,7 +105,6 @@
             });
         }
 
-        // 車の補充
         setInterval(() => {
             if (isPaused) return;
             let tp = Math.max(1, Math.floor(happy));
@@ -120,14 +119,13 @@
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 const mx = canvas.width/2, my = canvas.height/2;
 
-                // ★ 信号の切り替え判定を確実に
-                const now = Date.now();
-                if (now - lastChangeTime > (greenTime * 1000)) {
+                // ★ 信号の切り替えロジック（タイマー加算方式に変更）
+                timer += 1/60; // 毎フレーム(約1/60秒)加算
+                if (timer >= greenTime) {
                     signalState = (signalState + 1) % 4;
-                    lastChangeTime = now;
+                    timer = 0; // 切り替わったらリセット
                 }
 
-                // 道路
                 ctx.fillStyle = '#444';
                 ctx.fillRect(0, my-50, canvas.width, 100);
                 ctx.fillRect(mx-50, 0, 100, canvas.height);
@@ -139,7 +137,6 @@
 
                 cars.forEach(car => {
                     let canMove = true;
-                    // 他の車との衝突判定を少し緩めて詰まりにくく
                     const front = cars.find(o => o.id !== car.id && Math.abs(o.x - car.x) < 48 && Math.abs(o.y - car.y) < 48);
                     if(front) {
                         if(car.dir==='right' && front.x > car.x) canMove = false;
@@ -174,7 +171,6 @@
                     }
                     ctx.restore();
 
-                    // 通過判定
                     if (!car.passed) {
                         let isCrossing = false;
                         if(car.dir==='right' && car.x > mx) isCrossing = true;
@@ -192,7 +188,6 @@
                         }
                     }
                 });
-                // 画面外に出た車を削除（少し広めに設定）
                 cars = cars.filter(c => (c.x > -300 && c.x < canvas.width+300 && c.y > -300 && c.y < canvas.height+300));
             }
             requestAnimationFrame(update);
@@ -227,8 +222,9 @@
             const hitCar = cars.find(c => c.isEmergency && Math.abs(c.x+20 - mx) < 40 && Math.abs(c.y+20 - my) < 40);
             if(hitCar) { showRewardAd(); return; }
 
+            // ★ 判定範囲を広げて押しやすくしました
             const cx = canvas.width/2, cy = canvas.height/2;
-            if (Math.abs(mx-cx)<100 && Math.abs(my-cy)<100) { 
+            if (Math.abs(mx-cx)<80 && Math.abs(my-cy)<80) { 
                 document.getElementById('signalPanel').style.display='block'; 
                 isPaused = true; updateUI();
             }
@@ -254,7 +250,6 @@
         }
         function closeAll() { document.getElementById('signalPanel').style.display='none'; isPaused = false; }
         
-        // ★ ここでしっかり greenTime 変数に値を代入
         function updateSecText() { 
             const val = document.getElementById('secInput').value;
             greenTime = Number(val); 
