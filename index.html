@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Road Master - Emergency Update</title>
+    <title>Road Master - Flow Fix</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background: #7ab36a; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
         #adArea { width: 100%; height: 60px; background: #eee; flex-shrink: 0; z-index: 1000; border-bottom: 2px solid #ccc; }
@@ -23,7 +23,6 @@
         }
         .btn { width: 100%; padding: 12px; background: #ffcc00; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 8px; }
 
-        /* 全画面広告オーバーレイ */
         #adOverlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85); z-index: 5000; flex-direction: column; align-items: center; justify-content: center;
@@ -96,25 +95,33 @@
             else if(dir==='left'){ x=canvas.width+60; y=my-40; } 
             else { x=mx-40; y=canvas.height+60; }
             
-            // 15%の確率で緊急車両
-            const isEmergency = Math.random() < 0.15;
-            const typeIndex = Math.floor(Math.random() * 3); // 3種類からランダム
+            // ★ 緊急車両の出現率を少しアップ (20%)
+            const isEmergency = Math.random() < 0.20;
+            const typeIndex = Math.floor(Math.random() * 3);
             
             cars.push({ 
-                x, y, speed: (isEmergency ? 3 : 2) + Math.random(), 
+                x, y, speed: (isEmergency ? 3.5 : 2.5) + Math.random(), 
                 dir, passed: false, id: Math.random(), waitTime: 0,
                 isEmergency, typeIndex, flash: 0
             });
         }
 
+        // ★ 車両補充の監視を強化
         setInterval(() => {
             if (isPaused) return;
+            
+            // 人口の計算
             let tp = Math.max(1, Math.floor(happy));
             if (pop < tp) pop++; else if (pop > tp) pop--;
-            let targetCount = (pop * 0.4 <= 0.9) ? 1 : Math.floor(pop * 0.4);
-            if (cars.length < targetCount) spawnCar();
+            
+            // ★ 最低でも2〜3台は常に走るように調整
+            let targetCount = Math.max(2, Math.floor(pop * 0.6));
+            
+            if (cars.length < targetCount) {
+                spawnCar();
+            }
             updateUI();
-        }, 1000);
+        }, 800); // チェック間隔も少し短くしました
 
         function update() {
             if (!isPaused) {
@@ -126,7 +133,6 @@
                     lastChangeTime = Date.now();
                 }
 
-                // 道路
                 ctx.fillStyle = '#444';
                 ctx.fillRect(0, my-50, canvas.width, 100);
                 ctx.fillRect(mx-50, 0, 100, canvas.height);
@@ -138,11 +144,16 @@
 
                 cars.forEach(car => {
                     let canMove = true;
-                    const front = cars.find(o => o.id !== car.id && Math.abs(o.x - car.x) < 45 && Math.abs(o.y - car.y) < 45);
-                    if(front) canMove = false;
+                    const front = cars.find(o => o.id !== car.id && Math.abs(o.x - car.x) < 50 && Math.abs(o.y - car.y) < 50);
+                    if(front) {
+                        // 進行方向の重なりチェックを厳密化
+                        if(car.dir==='right' && front.x > car.x) canMove = false;
+                        if(car.dir==='down' && front.y > car.y) canMove = false;
+                        if(car.dir==='left' && front.x < car.x) canMove = false;
+                        if(car.dir==='up' && front.y < car.y) canMove = false;
+                    }
 
                     const stopLine = 85;
-                    // 緊急車両は信号無視させたい場合は判定を外せますが、今は一旦ルール通りにしています
                     if(car.dir==='right' && !hGo && car.x > mx-stopLine && car.x < mx-60) canMove = false;
                     if(car.dir==='down' && !vGo && car.y > my-stopLine && car.y < my-60) canMove = false;
                     if(car.dir==='left' && !hGo && car.x < mx+stopLine && car.x > mx+40) canMove = false;
@@ -158,13 +169,13 @@
                     if(car.dir==='right') ctx.rotate(Math.PI/2); else if(car.dir==='down') ctx.rotate(Math.PI); else if(car.dir==='left') ctx.rotate(-Math.PI/2);
                     
                     if(car.isEmergency && images.kinkyu.complete) {
-                        // パトライト点滅 (30フレームごとに0と1を切り替え)
-                        car.flash = (Math.floor(Date.now()/150) % 2);
-                        // スプライト描画 (32x32単位)
-                        // 横：typeIndex(0,1,2), 縦：flash(0:非点灯, 1:点灯)
+                        car.flash = (Math.floor(Date.now()/120) % 2); // 点滅を少し速く
                         ctx.drawImage(images.kinkyu, car.typeIndex*32, car.flash*32, 32, 32, -20, -20, 40, 40);
                     } else if(images.cars.complete) {
                         ctx.drawImage(images.cars, 0, 0, images.cars.width/5, images.cars.height/2, -20, -20, 40, 40);
+                    } else {
+                        ctx.fillStyle = car.isEmergency ? '#f0f' : '#f33';
+                        ctx.fillRect(-15, -10, 30, 20);
                     }
                     ctx.restore();
 
@@ -216,14 +227,12 @@
             const mx = e.clientX - rect.left;
             const my = e.clientY - rect.top;
 
-            // 1. 緊急車両のタップ判定
-            const hitCar = cars.find(c => c.isEmergency && Math.abs(c.x+20 - mx) < 30 && Math.abs(c.y+20 - my) < 30);
+            const hitCar = cars.find(c => c.isEmergency && Math.abs(c.x+20 - mx) < 40 && Math.abs(c.y+20 - my) < 40);
             if(hitCar) {
                 showRewardAd();
                 return;
             }
 
-            // 2. 信号のタップ判定
             const cx = canvas.width/2, cy = canvas.height/2;
             if (Math.abs(mx-cx)<100 && Math.abs(my-cy)<100) { 
                 document.getElementById('signalPanel').style.display='block'; 
@@ -231,15 +240,11 @@
             }
         });
 
-        // 広告システム
         function showRewardAd() {
             isPaused = true;
             document.getElementById('adOverlay').style.display = 'flex';
             document.getElementById('closeAdBtn').style.display = 'none';
-            // 5秒待機
-            setTimeout(() => {
-                document.getElementById('closeAdBtn').style.display = 'block';
-            }, 5000);
+            setTimeout(() => { document.getElementById('closeAdBtn').style.display = 'block'; }, 5000);
         }
 
         function finishRewardAd() {
